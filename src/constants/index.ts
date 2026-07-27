@@ -1,0 +1,1 @@
+export { COLORS, STATUS_COLORS, STATUS_LABELS, DEPARTMENTS, FONTS } from './colors';
