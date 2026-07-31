@@ -46,6 +46,18 @@ export const getSurgery = async (surgeryId: string): Promise<SurgeryOperation | 
   return docSnap.exists() ? (docSnap.data() as SurgeryOperation) : null;
 };
 
+// ✅ NEW: Resolve a scanned QR payload back to a surgery record
+export const getSurgeryByQrData = async (qrData: string): Promise<SurgeryOperation | null> => {
+  try {
+    const parsed = JSON.parse(qrData);
+    if (!parsed?.surgeryId) return null;
+    return await getSurgery(parsed.surgeryId);
+  } catch (error) {
+    console.error('getSurgeryByQrData error:', error);
+    return null;
+  }
+};
+
 export const getSurgeriesByHospital = async (hospitalId: string): Promise<SurgeryOperation[]> => {
   const q = query(
     collection(db, SURGERIES_COLLECTION),
@@ -66,14 +78,14 @@ export const updateSurgeryStatus = async (
     status,
     updatedAt: serverTimestamp(),
   };
-  
+
   if (status === 'in_surgery' && !extraUpdates?.startTime) {
     updateData.startTime = serverTimestamp();
   }
   if (status === 'completed' && !extraUpdates?.actualEndTime) {
     updateData.actualEndTime = serverTimestamp();
   }
-  
+
   await updateDoc(docRef, { ...updateData, ...extraUpdates });
 };
 
@@ -83,7 +95,6 @@ export const deleteSurgery = async (surgeryId: string): Promise<void> => {
 
 // ========== REAL-TIME SUBSCRIPTIONS ==========
 
-// Subscribe to ALL surgeries
 export const subscribeToSurgeries = (
   callback: (surgeries: SurgeryOperation[]) => void
 ) => {
@@ -97,7 +108,6 @@ export const subscribeToSurgeries = (
   });
 };
 
-// Subscribe to surgeries by hospital
 export const subscribeToSurgeriesByHospital = (
   hospitalId: string,
   callback: (surgeries: SurgeryOperation[]) => void
@@ -116,7 +126,6 @@ export const subscribeToSurgeriesByHospital = (
   });
 };
 
-// ✅ NEW: Subscribe to surgeries by family phone number
 export const subscribeToSurgeriesByFamilyPhone = (
   phoneNumber: string,
   callback: (surgeries: SurgeryOperation[]) => void
@@ -135,7 +144,6 @@ export const subscribeToSurgeriesByFamilyPhone = (
   });
 };
 
-// ✅ NEW: Subscribe to surgeries by family notification token (UID)
 export const subscribeToSurgeriesByFamilyToken = (
   token: string,
   callback: (surgeries: SurgeryOperation[]) => void

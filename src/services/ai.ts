@@ -1,44 +1,89 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-// Use your Gemini API key
-const API_KEY = 'YOUR_GEMINI_API_KEY'; // Replace with actual key
-const genAI = new GoogleGenerativeAI(API_KEY);
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-export const getChatResponse = async (message: string, history: { role: string; text: string }[]): Promise<string> => {
+if (!GEMINI_API_KEY) {
+  throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY in environment variables');
+}
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+const SYSTEM_INSTRUCTION = `You are SurgeryTrack AI, a friendly medical information assistant inside a surgery tracking app.
+Explain surgeries, procedures, recovery, and hospital-related information in simple and calming language for patients and families.
+Always remind users that you are not a doctor and that they should consult a healthcare professional for personal medical advice.
+Do not diagnose, prescribe, or handle emergencies as a doctor would.
+Keep answers short, clear, and supportive.`;
+
+export interface ChatHistoryItem {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export const askMedicalAI = async (
+  message: string,
+  history: ChatHistoryItem[] = []
+): Promise<string> => {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    
-    const chat = model.startChat({
-      history: history.map(h => ({
-        role: h.role === 'user' ? 'user' : 'model',
-        parts: [{ text: h.text }],
+    const contents = [
+      ...history.map((item) => ({
+        role: item.role,
+        parts: [{ text: item.text }],
       })),
-      generationConfig: {
-        maxOutputTokens: 500,
-        temperature: 0.7,
+      {
+        role: 'user' as const,
+        parts: [{ text: message }],
+      },
+    ];
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.6,
+        maxOutputTokens: 512,
       },
     });
 
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error('AI Chat Error:', error);
+    const text = response.text;
+
+    if (!text) {
+      throw new Error('Empty AI response');
+    }
+
+    return text;
+  } catch (error: any) {
+    console.error('askMedicalAI error:', error?.message || error);
     throw new Error('Failed to get AI response. Please try again.');
   }
 };
 
-// Simple medical info query
 export const getMedicalInfo = async (query: string): Promise<string> => {
-  const prompt = `You are a helpful medical assistant. Provide accurate, general medical information. Always advise consulting a healthcare professional for specific concerns.\n\nUser query: ${query}`;
-  
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error('Medical Info Error:', error);
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: query }],
+        },
+      ],
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.6,
+        maxOutputTokens: 512,
+      },
+    });
+
+    const text = response.text;
+
+    if (!text) {
+      throw new Error('Empty AI response');
+    }
+
+    return text;
+  } catch (error: any) {
+    console.error('getMedicalInfo error:', error?.message || error);
     throw new Error('Failed to fetch medical information.');
   }
 };
