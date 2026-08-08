@@ -1,12 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-if (!GEMINI_API_KEY) {
-  throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY in environment variables');
+export interface ChatHistoryItem {
+  role: 'user' | 'model';
+  text: string;
 }
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const SYSTEM_INSTRUCTION = `You are SurgeryTrack AI, a friendly medical information assistant inside a surgery tracking app.
 Explain surgeries, procedures, recovery, and hospital-related information in simple and calming language for patients and families.
@@ -14,16 +11,19 @@ Always remind users that you are not a doctor and that they should consult a hea
 Do not diagnose, prescribe, or handle emergencies as a doctor would.
 Keep answers short, clear, and supportive.`;
 
-export interface ChatHistoryItem {
-  role: 'user' | 'model';
-  text: string;
-}
-
 export const askMedicalAI = async (
   message: string,
   history: ChatHistoryItem[] = []
 ): Promise<string> => {
   try {
+    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY');
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
     const contents = [
       ...history.map((item) => ({
         role: item.role,
@@ -60,6 +60,14 @@ export const askMedicalAI = async (
 
 export const getMedicalInfo = async (query: string): Promise<string> => {
   try {
+    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY');
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [

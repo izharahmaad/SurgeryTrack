@@ -88,8 +88,7 @@ export default function ChatBotScreen() {
       timestamp: new Date(),
     };
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setLoading(true);
     scrollToBottom();
@@ -112,11 +111,12 @@ export default function ChatBotScreen() {
       setMessages((prev) => [...prev, botMessage]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       scrollToBottom();
-    } catch (error) {
+    } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Toast.show({
         type: 'error',
-        text1: 'Failed to get response. Please try again.',
+        text1: 'AI Error',
+        text2: error?.message || 'Failed to get response. Please try again.',
       });
     } finally {
       setLoading(false);

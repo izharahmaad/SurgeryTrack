@@ -46,7 +46,7 @@ export const getSurgery = async (surgeryId: string): Promise<SurgeryOperation | 
   return docSnap.exists() ? (docSnap.data() as SurgeryOperation) : null;
 };
 
-// ✅ NEW: Resolve a scanned QR payload back to a surgery record
+// ✅ Resolve a scanned QR payload back to a surgery record
 export const getSurgeryByQrData = async (qrData: string): Promise<SurgeryOperation | null> => {
   try {
     const parsed = JSON.parse(qrData);
@@ -94,6 +94,24 @@ export const deleteSurgery = async (surgeryId: string): Promise<void> => {
 };
 
 // ========== REAL-TIME SUBSCRIPTIONS ==========
+
+// ✅ NEW: Subscribe to a SINGLE surgery by ID (for SurgeryDetailScreen)
+export const subscribeToSurgery = (
+  surgeryId: string,
+  callback: (surgery: SurgeryOperation | null) => void
+) => {
+  const docRef = doc(db, SURGERIES_COLLECTION, surgeryId);
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      callback(docSnap.exists() ? (docSnap.data() as SurgeryOperation) : null);
+    },
+    (error) => {
+      console.error('subscribeToSurgery error:', error.code, error.message);
+      callback(null);
+    }
+  );
+};
 
 export const subscribeToSurgeries = (
   callback: (surgeries: SurgeryOperation[]) => void
