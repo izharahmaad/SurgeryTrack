@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { COLORS, FONTS, STATUS_COLORS, STATUS_LABELS } from '@/constants';
 import { SurgeryOperation } from '@/types';
 import {
@@ -33,6 +34,14 @@ function getGreeting() {
   if (hour < 12) return 'Good Morning';
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
+}
+
+function toSafeDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function useAnimatedCount(target: number, duration: number = 800) {
@@ -161,11 +170,16 @@ function MiniStatCard({ icon, label, value, color, trend, delay }: MiniStatProps
 }
 
 function QuickActions({ navigation, canCreate }: { navigation: any; canCreate: boolean }) {
+  const handleComingSoon = (label: string) => {
+    Haptics.selectionAsync();
+    Toast.show({ type: 'info', text1: label, text2: 'This feature is coming soon' });
+  };
+
   const actions = [
     { icon: 'plus-circle', label: 'New Case', color: COLORS.primary, onPress: () => navigation.navigate('CreateSurgery'), show: canCreate },
-    { icon: 'account-group', label: 'Patients', color: COLORS.info, onPress: () => navigation.navigate('Patients'), show: true },
+    { icon: 'account-group', label: 'Patients', color: COLORS.info, onPress: () => handleComingSoon('Patients'), show: true },
     { icon: 'calendar-month', label: 'Calendar', color: COLORS.success, onPress: () => navigation.navigate('Calendar'), show: true },
-    { icon: 'file-chart', label: 'Reports', color: '#F59E0B', onPress: () => navigation.navigate('Reports'), show: canCreate },
+    { icon: 'file-chart', label: 'Reports', color: '#F59E0B', onPress: () => handleComingSoon('Reports'), show: canCreate },
   ].filter((a) => a.show);
 
   return (
@@ -220,7 +234,11 @@ function OTRoomStatus({ surgeries }: { surgeries: SurgeryOperation[] }) {
 
 function RecentActivity({ surgeries }: { surgeries: SurgeryOperation[] }) {
   const recent = [...surgeries]
-    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+    .sort((a, b) => {
+      const dateA = toSafeDate(a.scheduledDate)?.getTime() ?? 0;
+      const dateB = toSafeDate(b.scheduledDate)?.getTime() ?? 0;
+      return dateB - dateA;
+    })
     .slice(0, 4);
 
   if (recent.length === 0) return null;
@@ -258,42 +276,6 @@ function RecentActivity({ surgeries }: { surgeries: SurgeryOperation[] }) {
   );
 }
 
-function BottomTabBar({ navigation, active }: { navigation: any; active: string }) {
-  const tabs = [
-    { id: 'home', label: 'Home', icon: 'home-variant', route: 'Dashboard' },
-    { id: 'surgeries', label: 'Surgeries', icon: 'medical-bag', route: 'AllSurgeries' },
-    { id: 'calendar', label: 'Calendar', icon: 'calendar-month', route: 'Calendar' },
-    { id: 'profile', label: 'Profile', icon: 'account-circle', route: 'Profile' },
-  ];
-
-  return (
-    <View style={styles.tabBar}>
-      {tabs.map((tab) => {
-        const isActive = tab.id === active;
-        return (
-          <Pressable
-            key={tab.id}
-            style={styles.tabItem}
-            onPress={() => {
-              Haptics.selectionAsync();
-              if (tab.route !== 'Dashboard') navigation.navigate(tab.route);
-            }}
-          >
-            <View style={[styles.tabIconCircle, isActive && styles.tabIconCircleActive]}>
-              <MaterialCommunityIcons
-                name={tab.icon as any}
-                size={20}
-                color={isActive ? COLORS.surface : COLORS.textMuted}
-              />
-            </View>
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 interface SurgeryCardProps {
   surgery: SurgeryOperation;
   index: number;
@@ -316,12 +298,10 @@ function SurgeryCard({ surgery, index, onPress }: SurgeryCardProps) {
   const isEmergency = surgery.status === 'emergency';
   const isActive = ACTIVE_STATUSES.includes(surgery.status);
 
-  const formatTime = (date: Date) => {
-    try {
-      return new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return '--:--';
-    }
+  const formatTime = (dateValue: any) => {
+    const date = toSafeDate(dateValue);
+    if (!date) return '--:--';
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const progressWidth =
@@ -450,6 +430,13 @@ export default function DashboardScreen() {
     ]).start();
   }, []);
 
+  const userRole = user?.role || '';
+  const isHospitalStaff = HOSPITAL_ROLES.includes(userRole);
+  const isDoctor = DOCTOR_ROLES.includes(userRole);
+  const isFamily = userRole === 'family';
+  const canCreate = isHospitalStaff;
+  const missingHospitalId = isHospitalStaff && !user?.hospitalId;
+
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -458,10 +445,6 @@ export default function DashboardScreen() {
 
     setLoading(true);
     let unsubscribe: (() => void) | undefined;
-
-    const userRole = user.role || '';
-    const isHospitalStaff = HOSPITAL_ROLES.includes(userRole);
-    const isFamily = userRole === 'family';
 
     if (isHospitalStaff && user.hospitalId) {
       unsubscribe = subscribeToSurgeriesByHospital(user.hospitalId, (data) => {
@@ -488,7 +471,10 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Haptics.selectionAsync();
-    setTimeout(() => setRefreshing(false), 900);
+    setTimeout(() => {
+      setRefreshing(false);
+      Toast.show({ type: 'success', text1: 'Dashboard is up to date' });
+    }, 800);
   }, []);
 
   const stats = {
@@ -530,10 +516,6 @@ export default function DashboardScreen() {
     navigation.navigate('RoleSelection');
   };
 
-  const userRole = user?.role || '';
-  const isHospitalStaff = HOSPITAL_ROLES.includes(userRole);
-  const isDoctor = DOCTOR_ROLES.includes(userRole);
-  const canCreate = isHospitalStaff;
   const firstName = user?.displayName?.split(' ')[0] || 'there';
   const avatarInitial = (user?.displayName?.charAt(0) || 'U').toUpperCase();
 
@@ -596,6 +578,15 @@ export default function DashboardScreen() {
             onChangeText={setSearchQuery}
             autoFocus
           />
+        </View>
+      )}
+
+      {missingHospitalId && (
+        <View style={styles.warningBanner}>
+          <MaterialCommunityIcons name="alert-outline" size={16} color={COLORS.warning} />
+          <Text style={styles.warningText}>
+            Your account has no hospital assigned. Contact your admin to see surgery data.
+          </Text>
         </View>
       )}
 
@@ -684,7 +675,7 @@ export default function DashboardScreen() {
 
         <RecentActivity surgeries={surgeries} />
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 130 }} />
       </ScrollView>
 
       {canCreate && (
@@ -700,8 +691,6 @@ export default function DashboardScreen() {
           </LinearGradient>
         </Pressable>
       )}
-
-      <BottomTabBar navigation={navigation} active="home" />
     </SafeAreaView>
   );
 }
@@ -735,6 +724,11 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
   },
   searchInput: { flex: 1, fontSize: 14, fontFamily: FONTS.regular, color: COLORS.text },
+  warningBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginHorizontal: 24, marginBottom: 8,
+    padding: 12, borderRadius: 14, backgroundColor: COLORS.warningLight, borderWidth: 1, borderColor: COLORS.border,
+  },
+  warningText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: FONTS.regular, color: COLORS.textSecondary },
   statsContainer: { paddingHorizontal: 24, marginTop: 8 },
   sectionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionHeaderTitle: { fontSize: 20, fontFamily: FONTS.bold, color: COLORS.text, letterSpacing: -0.3 },
@@ -864,19 +858,8 @@ const styles = StyleSheet.create({
   activityLine: { position: 'absolute', left: 15, top: 38, bottom: -8, width: 1, backgroundColor: COLORS.divider },
 
   fab: {
-    position: 'absolute', bottom: 100, right: 24,
+    position: 'absolute', bottom: 110, right: 24,
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.32, shadowRadius: 16, elevation: 8,
   },
   fabInner: { width: 58, height: 58, borderRadius: 29, justifyContent: 'center', alignItems: 'center' },
-
-  tabBar: {
-    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
-    backgroundColor: COLORS.surface, paddingVertical: 12, paddingBottom: 20,
-    borderTopWidth: 1, borderTopColor: COLORS.border,
-  },
-  tabItem: { alignItems: 'center', gap: 4 },
-  tabIconCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  tabIconCircleActive: { backgroundColor: COLORS.primary },
-  tabLabel: { fontSize: 10.5, fontFamily: FONTS.medium, color: COLORS.textMuted },
-  tabLabelActive: { color: COLORS.primary, fontFamily: FONTS.semiBold },
 });

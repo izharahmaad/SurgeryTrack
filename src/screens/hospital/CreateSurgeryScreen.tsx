@@ -1,20 +1,46 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Share,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, DEPARTMENTS } from '../../constants';
-import { createSurgery } from '../../services/surgery';
-import { useAuthStore } from '../../hooks/useAuthStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import QRCode from 'react-native-qrcode-svg';
+import { COLORS, FONTS, DEPARTMENTS } from '../../constants';
+import { createSurgery, getSurgery } from '../../services/surgery';
+import { useAuthStore } from '../../hooks/useAuthStore';
+
+interface FormErrors {
+  [key: string]: string;
+}
 
 export default function CreateSurgeryScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [qrData, setQrData] = useState('');
+  const [createdPatientName, setCreatedPatientName] = useState('');
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [showDeptPicker, setShowDeptPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState(new Date());
+
   const [formData, setFormData] = useState({
     patientName: '',
     patientAge: '',
@@ -29,61 +55,143 @@ export default function CreateSurgeryScreen() {
   });
 
   const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {};
+    if (!formData.patientName.trim()) newErrors.patientName = 'Patient name is required';
+    if (!formData.doctorName.trim()) newErrors.doctorName = 'Doctor name is required';
+    if (!formData.operationType.trim()) newErrors.operationType = 'Operation type is required';
+    if (formData.patientAge && (isNaN(Number(formData.patientAge)) || Number(formData.patientAge) <= 0)) {
+      newErrors.patientAge = 'Enter a valid age';
+    }
+    if (formData.familyPhone && formData.familyPhone.replace(/\D/g, '').length < 7) {
+      newErrors.familyPhone = 'Enter a valid phone number';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!formData.patientName || !formData.doctorName || !formData.operationType) {
-      Toast.show({ type: 'error', text1: 'Please fill all required fields' });
+    if (!validate()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Toast.show({ type: 'error', text1: 'Please fix the highlighted fields' });
       return;
     }
+
     setLoading(true);
     try {
-      const qrId = `SUR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const surgeryData = {
-        patientName: formData.patientName,
+        patientName: formData.patientName.trim(),
         patientAge: parseInt(formData.patientAge) || 0,
         patientGender: formData.patientGender as 'male' | 'female' | 'other',
-        doctorName: formData.doctorName,
+        doctorName: formData.doctorName.trim(),
         department: formData.department,
-        operationType: formData.operationType,
-        operationDescription: formData.operationDescription,
-        otRoom: formData.otRoom,
+        operationType: formData.operationType.trim(),
+        operationDescription: formData.operationDescription.trim(),
+        otRoom: formData.otRoom.trim(),
         hospitalId: user?.hospitalId || 'hospital_1',
-        scheduledDate: new Date(),
+        scheduledDate,
         status: 'scheduled' as const,
-        qrCodeData: qrId,
-        familyPhoneNumbers: formData.familyPhone ? [formData.familyPhone] : [],
+        familyPhoneNumbers: formData.familyPhone ? [formData.familyPhone.trim()] : [],
         familyNotificationTokens: [],
-        anesthesiaType: formData.anesthesiaType,
+        anesthesiaType: formData.anesthesiaType.trim(),
         createdBy: user?.uid || 'system',
       };
-      await createSurgery(surgeryData);
-      setQrData(qrId);
+
+      const newId = await createSurgery(surgeryData);
+      const created = await getSurgery(newId);
+
+      if (!created?.qrCodeData) {
+        throw new Error('Surgery created but QR code could not be generated');
+      }
+
+      setQrData(created.qrCodeData);
+      setCreatedPatientName(created.patientName);
       setStep(2);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Toast.show({ type: 'success', text1: 'Surgery created successfully!' });
     } catch (error: any) {
-      Toast.show({ type: 'error', text1: error.message || 'Failed to create surgery' });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Toast.show({ type: 'error', text1: error?.message || 'Failed to create surgery' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyQrData = async () => {
+    await Clipboard.setStringAsync(qrData);
+    Haptics.selectionAsync();
+    Toast.show({ type: 'success', text1: 'QR data copied to clipboard' });
+  };
+
+  const shareQr = async () => {
+    Haptics.selectionAsync();
+    try {
+      await Share.share({
+        message: `SurgeryTrack - Track ${createdPatientName}'s surgery.\nQR Data: ${qrData}`,
+      });
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Could not share' });
+    }
+  };
+
+  const onDateChange = (_event: unknown, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const updated = new Date(scheduledDate);
+      updated.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      setScheduledDate(updated);
+    }
+  };
+
+  const onTimeChange = (_event: unknown, selectedTime?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      const updated = new Date(scheduledDate);
+      updated.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+      setScheduledDate(updated);
     }
   };
 
   if (step === 2 && qrData) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.successContainer}>
+        <Animated.View entering={FadeIn.duration(400)} style={styles.successContainer}>
           <MaterialCommunityIcons name="check-circle" size={64} color={COLORS.success} />
           <Text style={styles.successTitle}>Surgery Created!</Text>
           <Text style={styles.successText}>Share this QR code with the family</Text>
+
           <View style={styles.qrContainer}>
             <QRCode value={qrData} size={200} />
           </View>
-          <Text style={styles.qrText}>{qrData}</Text>
-          <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
+
+          <View style={styles.qrActionsRow}>
+            <TouchableOpacity style={styles.qrActionBtn} onPress={copyQrData} activeOpacity={0.85}>
+              <MaterialCommunityIcons name="content-copy" size={16} color={COLORS.primary} />
+              <Text style={styles.qrActionText}>Copy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.qrActionBtn} onPress={shareQr} activeOpacity={0.85}>
+              <MaterialCommunityIcons name="share-variant" size={16} color={COLORS.primary} />
+              <Text style={styles.qrActionText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.goBack();
+            }}
+            activeOpacity={0.9}
+          >
             <Text style={styles.buttonText}>Done</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -91,58 +199,328 @@ export default function CreateSurgeryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Surgery</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 44 }} />
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.form}>
-        <Text style={styles.sectionTitle}>Patient Information</Text>
-        <TextInput style={styles.input} placeholder="Patient Name *" value={formData.patientName} onChangeText={(t) => updateField('patientName', t)} />
-        <View style={styles.row}>
-          <TextInput style={[styles.input, styles.halfInput]} placeholder="Age" keyboardType="numeric" value={formData.patientAge} onChangeText={(t) => updateField('patientAge', t)} />
-          <View style={styles.genderContainer}>
-            {['male', 'female', 'other'].map((g) => (
-              <TouchableOpacity key={g} style={[styles.genderBtn, formData.patientGender === g && { backgroundColor: COLORS.primary }]} onPress={() => updateField('patientGender', g)}>
-                <Text style={[styles.genderText, formData.patientGender === g && { color: COLORS.surface }]}>{g}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+
+      <View style={styles.progressRow}>
+        <View style={[styles.progressStep, styles.progressStepActive]}>
+          <Text style={styles.progressStepText}>1</Text>
         </View>
-        <Text style={styles.sectionTitle}>Surgery Details</Text>
-        <TextInput style={styles.input} placeholder="Doctor Name *" value={formData.doctorName} onChangeText={(t) => updateField('doctorName', t)} />
-        <TextInput style={styles.input} placeholder="Operation Type *" value={formData.operationType} onChangeText={(t) => updateField('operationType', t)} />
-        <TextInput style={styles.input} placeholder="OT Room" value={formData.otRoom} onChangeText={(t) => updateField('otRoom', t)} />
-        <TextInput style={styles.input} placeholder="Anesthesia Type" value={formData.anesthesiaType} onChangeText={(t) => updateField('anesthesiaType', t)} />
-        <TextInput style={[styles.input, styles.textArea]} placeholder="Operation Description" multiline numberOfLines={4} value={formData.operationDescription} onChangeText={(t) => updateField('operationDescription', t)} />
-        <Text style={styles.sectionTitle}>Family Contact</Text>
-        <TextInput style={styles.input} placeholder="Family Phone Number" keyboardType="phone-pad" value={formData.familyPhone} onChangeText={(t) => updateField('familyPhone', t)} />
-        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
+        <View style={styles.progressLine} />
+        <View style={styles.progressStep}>
+          <Text style={[styles.progressStepText, { color: COLORS.textMuted }]}>2</Text>
+        </View>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.form} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Animated.View entering={FadeInDown.delay(40)}>
+          <Text style={styles.sectionTitle}>Patient Information</Text>
+          <TextInput
+            style={[styles.input, errors.patientName && styles.inputError]}
+            placeholder="Patient Name *"
+            placeholderTextColor={COLORS.textMuted}
+            value={formData.patientName}
+            onChangeText={(t) => updateField('patientName', t)}
+          />
+          {errors.patientName && <Text style={styles.errorText}>{errors.patientName}</Text>}
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <TextInput
+                style={[styles.input, errors.patientAge && styles.inputError]}
+                placeholder="Age"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={formData.patientAge}
+                onChangeText={(t) => updateField('patientAge', t)}
+              />
+              {errors.patientAge && <Text style={styles.errorText}>{errors.patientAge}</Text>}
+            </View>
+            <View style={styles.genderContainer}>
+              {['male', 'female', 'other'].map((g) => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.genderBtn, formData.patientGender === g && styles.genderBtnActive]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    updateField('patientGender', g);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.genderText, formData.patientGender === g && styles.genderTextActive]}>
+                    {g}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(80)}>
+          <Text style={styles.sectionTitle}>Surgery Details</Text>
+
+          <TextInput
+            style={[styles.input, errors.doctorName && styles.inputError]}
+            placeholder="Doctor Name *"
+            placeholderTextColor={COLORS.textMuted}
+            value={formData.doctorName}
+            onChangeText={(t) => updateField('doctorName', t)}
+          />
+          {errors.doctorName && <Text style={styles.errorText}>{errors.doctorName}</Text>}
+
+          <TouchableOpacity style={styles.input} onPress={() => setShowDeptPicker(true)} activeOpacity={0.85}>
+            <View style={styles.pickerRow}>
+              <Text style={styles.pickerText}>{formData.department}</Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color={COLORS.textMuted} />
+            </View>
+          </TouchableOpacity>
+
+          <TextInput
+            style={[styles.input, errors.operationType && styles.inputError]}
+            placeholder="Operation Type *"
+            placeholderTextColor={COLORS.textMuted}
+            value={formData.operationType}
+            onChangeText={(t) => updateField('operationType', t)}
+          />
+          {errors.operationType && <Text style={styles.errorText}>{errors.operationType}</Text>}
+
+          <TextInput
+            style={styles.input}
+            placeholder="OT Room"
+            placeholderTextColor={COLORS.textMuted}
+            value={formData.otRoom}
+            onChangeText={(t) => updateField('otRoom', t)}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Anesthesia Type"
+            placeholderTextColor={COLORS.textMuted}
+            value={formData.anesthesiaType}
+            onChangeText={(t) => updateField('anesthesiaType', t)}
+          />
+
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Operation Description"
+            placeholderTextColor={COLORS.textMuted}
+            multiline
+            numberOfLines={4}
+            value={formData.operationDescription}
+            onChangeText={(t) => updateField('operationDescription', t)}
+          />
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120)}>
+          <Text style={styles.sectionTitle}>Schedule</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.input, styles.halfInput, styles.pickerRow]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.pickerText}>{scheduledDate.toLocaleDateString()}</Text>
+              <MaterialCommunityIcons name="calendar" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.input, styles.halfInput, styles.pickerRow]}
+              onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.pickerText}>
+                {scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <MaterialCommunityIcons name="clock-outline" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {showDatePicker && (
+            <DateTimePicker value={scheduledDate} mode="date" display="default" onChange={onDateChange} />
+          )}
+          {showTimePicker && (
+            <DateTimePicker value={scheduledDate} mode="time" display="default" onChange={onTimeChange} />
+          )}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(160)}>
+          <Text style={styles.sectionTitle}>Family Contact</Text>
+          <TextInput
+            style={[styles.input, errors.familyPhone && styles.inputError]}
+            placeholder="Family Phone Number"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="phone-pad"
+            value={formData.familyPhone}
+            onChangeText={(t) => updateField('familyPhone', t)}
+          />
+          {errors.familyPhone && <Text style={styles.errorText}>{errors.familyPhone}</Text>}
+        </Animated.View>
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
           <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Surgery & Generate QR'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={showDeptPicker} transparent animationType="slide" onRequestClose={() => setShowDeptPicker(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowDeptPicker(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Department</Text>
+            <FlatList
+              data={DEPARTMENTS}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    updateField('department', item);
+                    setShowDeptPicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      formData.department === item && { color: COLORS.primary, fontFamily: FONTS.semiBold },
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                  {formData.department === item && (
+                    <MaterialCommunityIcons name="check" size={18} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24 },
-  headerTitle: { fontSize: 20, fontFamily: 'Poppins-Bold', color: COLORS.text },
-  form: { padding: 24, paddingTop: 0 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Poppins-SemiBold', color: COLORS.primary, marginTop: 16, marginBottom: 12 },
-  input: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, fontSize: 15, fontFamily: 'Poppins-Regular', color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, marginBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  headerTitle: { fontSize: 18, fontFamily: FONTS.bold, color: COLORS.text },
+
+  progressRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 40, marginBottom: 16 },
+  progressStep: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressStepActive: { backgroundColor: COLORS.primary },
+  progressStepText: { fontSize: 13, fontFamily: FONTS.bold, color: COLORS.surface },
+  progressLine: { flex: 1, height: 2, backgroundColor: COLORS.border, marginHorizontal: 8 },
+
+  form: { paddingHorizontal: 20 },
+  sectionTitle: { fontSize: 15, fontFamily: FONTS.semiBold, color: COLORS.primary, marginTop: 20, marginBottom: 12 },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+  },
+  inputError: { borderColor: COLORS.error },
+  errorText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.regular,
+    color: COLORS.error,
+    marginTop: -8,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+
   row: { flexDirection: 'row', gap: 12 },
   halfInput: { flex: 1 },
-  genderContainer: { flexDirection: 'row', flex: 2, gap: 8 },
-  genderBtn: { flex: 1, backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  genderText: { fontSize: 12, fontFamily: 'Poppins-Medium', color: COLORS.textSecondary },
+  genderContainer: { flexDirection: 'row', flex: 2, gap: 8, height: 54 },
+  genderBtn: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  genderBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  genderText: { fontSize: 12, fontFamily: FONTS.medium, color: COLORS.textSecondary },
+  genderTextActive: { color: COLORS.surface },
+
+  pickerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerText: { fontSize: 14, fontFamily: FONTS.regular, color: COLORS.text },
+
   textArea: { height: 100, textAlignVertical: 'top' },
-  button: { backgroundColor: COLORS.primary, borderRadius: 16, padding: 18, alignItems: 'center', marginTop: 24, marginBottom: 40 },
-  buttonText: { color: COLORS.surface, fontSize: 16, fontFamily: 'Poppins-Bold' },
+
+  button: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: COLORS.surface, fontSize: 16, fontFamily: FONTS.bold },
+
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  successTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: COLORS.text, marginTop: 16 },
-  successText: { fontSize: 14, fontFamily: 'Poppins-Regular', color: COLORS.textSecondary, marginTop: 8, marginBottom: 24 },
+  successTitle: { fontSize: 24, fontFamily: FONTS.bold, color: COLORS.text, marginTop: 16 },
+  successText: { fontSize: 14, fontFamily: FONTS.regular, color: COLORS.textSecondary, marginTop: 8, marginBottom: 24 },
   qrContainer: { backgroundColor: COLORS.surface, padding: 24, borderRadius: 24, borderWidth: 2, borderColor: COLORS.border },
-  qrText: { fontSize: 12, fontFamily: 'Poppins-Regular', color: COLORS.textMuted, marginTop: 16 },
+  qrActionsRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  qrActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  qrActionText: { fontSize: 13, fontFamily: FONTS.semiBold, color: COLORS.primary },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '60%',
+  },
+  modalTitle: { fontSize: 17, fontFamily: FONTS.bold, color: COLORS.text, marginBottom: 12 },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalItemText: { fontSize: 14, fontFamily: FONTS.regular, color: COLORS.text },
 });

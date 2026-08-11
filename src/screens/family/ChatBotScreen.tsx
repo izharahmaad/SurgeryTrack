@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,6 +29,8 @@ import Toast from 'react-native-toast-message';
 import { COLORS, FONTS } from '../../constants';
 import { ChatMessage } from '../../types';
 import { askMedicalAI } from '../../services/ai';
+
+const MAX_HISTORY_MESSAGES = 12;
 
 function TypingDot() {
   const opacity = useSharedValue(0.3);
@@ -55,17 +60,19 @@ function formatTime(date: Date) {
   });
 }
 
+const WELCOME_MESSAGE: ChatMessage = {
+  id: '1',
+  role: 'model',
+  text: 'Hello! I am SurgeryTrack AI. I can help explain surgeries, procedures, and recovery information in simple language.\n\nPlease note: I am not a doctor. Always consult your healthcare provider for medical advice.',
+  timestamp: new Date(),
+};
+
 export default function ChatBotScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'model',
-      text: 'Hello! I am SurgeryTrack AI. I can help explain surgeries, procedures, and recovery information in simple language.\n\nPlease note: I am not a doctor. Always consult your healthcare provider for medical advice.',
-      timestamp: new Date(),
-    },
-  ]);
+  const navigation = useNavigation<any>();
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const scrollToBottom = () => {
@@ -74,30 +81,13 @@ export default function ChatBotScreen() {
     }, 100);
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const trimmed = input.trim();
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: trimmed,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+  const sendToAI = async (trimmed: string, historySource: ChatMessage[]) => {
     setLoading(true);
-    scrollToBottom();
-
+    setFailedMessage(null);
     try {
-      const history = messages.map((m) => ({
-        role: m.role,
-        text: m.text,
-      }));
+      const history = historySource
+        .slice(-MAX_HISTORY_MESSAGES)
+        .map((m) => ({ role: m.role, text: m.text }));
 
       const response = await askMedicalAI(trimmed, history);
 
@@ -113,14 +103,63 @@ export default function ChatBotScreen() {
       scrollToBottom();
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setFailedMessage(trimmed);
       Toast.show({
         type: 'error',
         text1: 'AI Error',
-        text2: error?.message || 'Failed to get response. Please try again.',
+        text2: error?.message || 'Failed to get response. Tap retry below.',
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const trimmed = input.trim();
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      text: trimmed,
+      timestamp: new Date(),
+    };
+
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    setInput('');
+    scrollToBottom();
+
+    await sendToAI(trimmed, messages);
+  };
+
+  const retryLastMessage = async () => {
+    if (!failedMessage) return;
+    Haptics.selectionAsync();
+    await sendToAI(failedMessage, messages);
+  };
+
+  const copyMessage = async (text: string) => {
+    await Clipboard.setStringAsync(text);
+    Haptics.selectionAsync();
+    Toast.show({ type: 'success', text1: 'Message copied' });
+  };
+
+  const startNewChat = () => {
+    Alert.alert('Start New Chat', 'This will clear the current conversation.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          Haptics.selectionAsync();
+          setMessages([{ ...WELCOME_MESSAGE, id: Date.now().toString(), timestamp: new Date() }]);
+          setFailedMessage(null);
+        },
+      },
+    ]);
   };
 
   return (
@@ -131,13 +170,21 @@ export default function ChatBotScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.85}>
+            <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.text} />
+          </TouchableOpacity>
+
           <View style={styles.headerIconCircle}>
-            <MaterialCommunityIcons name="robot-outline" size={26} color={COLORS.primary} />
+            <MaterialCommunityIcons name="robot-outline" size={22} color={COLORS.primary} />
           </View>
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>Medical AI Assistant</Text>
             <Text style={styles.headerSubtitle}>Powered by Gemini</Text>
           </View>
+
+          <TouchableOpacity onPress={startNewChat} style={styles.backBtn} activeOpacity={0.85}>
+            <MaterialCommunityIcons name="refresh" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -152,27 +199,33 @@ export default function ChatBotScreen() {
             <Animated.View
               key={msg.id}
               entering={idx === messages.length - 1 ? FadeInUp.duration(280) : undefined}
-              style={[
-                styles.messageBubble,
-                msg.role === 'user' ? styles.userBubble : styles.botBubble,
-              ]}
+              style={styles.messageWrap}
             >
-              <Text
+              <TouchableOpacity
+                onLongPress={() => copyMessage(msg.text)}
+                activeOpacity={0.9}
                 style={[
-                  styles.messageText,
-                  msg.role === 'user' ? styles.userText : styles.botText,
+                  styles.messageBubble,
+                  msg.role === 'user' ? styles.userBubble : styles.botBubble,
                 ]}
               >
-                {msg.text}
-              </Text>
-              <Text
-                style={[
-                  styles.timestamp,
-                  msg.role === 'user' ? styles.userTimestamp : styles.botTimestamp,
-                ]}
-              >
-                {formatTime(msg.timestamp)}
-              </Text>
+                <Text
+                  style={[
+                    styles.messageText,
+                    msg.role === 'user' ? styles.userText : styles.botText,
+                  ]}
+                >
+                  {msg.text}
+                </Text>
+                <Text
+                  style={[
+                    styles.timestamp,
+                    msg.role === 'user' ? styles.userTimestamp : styles.botTimestamp,
+                  ]}
+                >
+                  {formatTime(msg.timestamp)}
+                </Text>
+              </TouchableOpacity>
             </Animated.View>
           ))}
 
@@ -181,6 +234,17 @@ export default function ChatBotScreen() {
               <TypingDot />
               <TypingDot />
               <TypingDot />
+            </Animated.View>
+          )}
+
+          {failedMessage && !loading && (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.retryBox}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={16} color={COLORS.error} />
+              <Text style={styles.retryText}>Message failed to send</Text>
+              <TouchableOpacity onPress={retryLastMessage} style={styles.retryBtn} activeOpacity={0.85}>
+                <MaterialCommunityIcons name="refresh" size={14} color={COLORS.primary} />
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
             </Animated.View>
           )}
         </ScrollView>
@@ -229,28 +293,39 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     backgroundColor: COLORS.surface,
+    gap: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   headerIconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerText: { marginLeft: 14 },
+  headerText: { flex: 1 },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     marginTop: 2,
@@ -263,6 +338,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
+  messageWrap: { width: '100%' },
   messageBubble: {
     maxWidth: '86%',
     paddingHorizontal: 16,
@@ -321,6 +397,30 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.primary,
   },
+
+  retryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.errorLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    gap: 8,
+  },
+  retryText: { fontSize: 12, fontFamily: FONTS.regular, color: COLORS.error },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  retryBtnText: { fontSize: 11.5, fontFamily: FONTS.semiBold, color: COLORS.primary },
 
   disclaimerBox: {
     flexDirection: 'row',
