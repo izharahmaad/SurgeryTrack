@@ -1,150 +1,163 @@
 import React from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { COLORS, FONTS } from '@/constants';
+import { COLORS, FONTS } from '../../constants';
 
-export default function OnboardingScreen1() {
-  const navigation = useNavigation<any>();
+type Props = {
+  onNext: () => void;
+};
 
-  const handleGetStarted = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Onboarding2');
-  };
-
-  const handleSkip = () => {
-    Haptics.selectionAsync();
-    navigation.navigate('RoleSelection');
-  };
-
+export default function OnboardingScreen1({ onNext }: Props) {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.topRow}>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={handleSkip} style={({ pressed }) => [styles.skipPill, pressed && { opacity: 0.6 }]}>
-          <Text style={styles.skipText}>Skip</Text>
-          <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textMuted} />
-        </Pressable>
-      </View>
-
       <View style={styles.content}>
-        <View style={styles.iconRing}>
+        <View style={styles.heroCircle}>
           <LinearGradient
             colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.iconGradientBg}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            style={styles.gradient}
           >
-            <MaterialCommunityIcons name="heart-pulse" size={60} color={COLORS.surface} />
+            <MaterialCommunityIcons
+              name="hospital-building"
+              size={76}
+              color={COLORS.surface}
+            />
           </LinearGradient>
         </View>
 
-        <Text style={styles.title}>SurgeryTrack</Text>
-        <Text style={styles.subtitle}>Real-Time Surgery Monitoring</Text>
-        <Text style={styles.description}>
-          Stay connected with your loved ones during surgery. Get instant updates, track progress, and access AI-powered medical information.
+        <Text style={styles.title}>Track Every Surgery</Text>
+        <Text style={styles.subtitle}>
+          SurgeryTrack helps hospitals and families follow surgery progress
+          with clear, real-time updates.
         </Text>
+
+        <View style={styles.featureRow}>
+          <MaterialCommunityIcons
+            name="check-circle"
+            size={22}
+            color={COLORS.success}
+          />
+          <Text style={styles.featureText}>Live surgery status updates</Text>
+        </View>
+
+        <View style={styles.featureRow}>
+          <MaterialCommunityIcons
+            name="check-circle"
+            size={22}
+            color={COLORS.success}
+          />
+          <Text style={styles.featureText}>Simple communication for families</Text>
+        </View>
       </View>
 
-      <View style={styles.bottomSection}>
-        <View style={styles.dotsRow}>
-          <View style={[styles.dot, styles.dotActive]} />
+      <View style={styles.footer}>
+        <View style={styles.dots}>
+          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
           <View style={styles.dot} />
         </View>
 
-        <Pressable
-          onPress={handleGetStarted}
-          style={({ pressed }) => [pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.button}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.buttonLabel}>Get Started</Text>
-            <View style={styles.arrowCircle}>
-              <MaterialCommunityIcons name="arrow-right" size={18} color={COLORS.primary} />
-            </View>
-          </LinearGradient>
-        </Pressable>
+        <TouchableOpacity style={styles.button} onPress={onNext}>
+          <Text style={styles.buttonText}>Continue</Text>
+          <MaterialCommunityIcons
+            name="arrow-right"
+            size={20}
+            color={COLORS.surface}
+          />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  topRow: { flexDirection: 'row', paddingHorizontal: 24, paddingTop: 8 },
-  skipPill: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
   },
-  skipText: { fontFamily: FONTS.medium, fontSize: 13, color: COLORS.textMuted },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  iconRing: {
-    width: 152,
-    height: 152,
-    borderRadius: 76,
-    marginBottom: 40,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
+  heroCircle: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    padding: 6,
+    marginBottom: 34,
   },
-  iconGradientBg: {
-    width: 152,
-    height: 152,
-    borderRadius: 76,
+  gradient: {
+    flex: 1,
+    borderRadius: 82,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 40, fontFamily: FONTS.bold, color: COLORS.text, marginBottom: 10, letterSpacing: -0.5 },
-  subtitle: { fontSize: 17, fontFamily: FONTS.semiBold, color: COLORS.primary, marginBottom: 20 },
-  description: {
-    fontSize: 15,
-    fontFamily: FONTS.regular,
-    color: COLORS.textMuted,
+  title: {
+    fontSize: 28,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
     textAlign: 'center',
-    lineHeight: 23,
-    paddingHorizontal: 8,
   },
-  bottomSection: { paddingHorizontal: 32, paddingBottom: 32 },
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 28 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.border },
-  dotActive: { width: 24, backgroundColor: COLORS.primary },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 23,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  featureRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 18,
+  },
+  featureText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+  footer: {
+    padding: 24,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.border,
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: COLORS.primary,
+  },
   button: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 32,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 18,
+    paddingVertical: 17,
   },
-  buttonLabel: { fontFamily: FONTS.bold, fontSize: 17, color: COLORS.surface, marginRight: 12 },
-  arrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+  buttonText: {
+    color: COLORS.surface,
+    fontSize: 16,
+    fontFamily: FONTS.bold,
   },
 });

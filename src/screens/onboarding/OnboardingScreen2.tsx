@@ -1,85 +1,84 @@
 import React from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { COLORS, FONTS } from '@/constants';
+import { COLORS, FONTS } from '../../constants';
 
-export default function OnboardingScreen2() {
-  const navigation = useNavigation<any>();
+type Props = {
+  onBack: () => void;
+  onNext: () => void;
+};
 
-  const handleNext = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Onboarding3');
-  };
-
-  const handleSkip = () => {
-    Haptics.selectionAsync();
-    navigation.navigate('RoleSelection');
-  };
-
-  const handleBack = () => {
-    Haptics.selectionAsync();
-    navigation.goBack();
-  };
-
+export default function OnboardingScreen2({ onBack, onNext }: Props) {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.topRow}>
-        <Pressable onPress={handleBack} style={({ pressed }) => [styles.backCircle, pressed && { opacity: 0.6 }]}>
-          <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.text} />
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={handleSkip} style={({ pressed }) => [styles.skipPill, pressed && { opacity: 0.6 }]}>
-          <Text style={styles.skipText}>Skip</Text>
-          <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textMuted} />
-        </Pressable>
-      </View>
-
       <View style={styles.content}>
-        <View style={styles.iconRing}>
+        <View style={styles.heroCircle}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.iconGradientBg}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            colors={[COLORS.info, '#64B5F6']}
+            style={styles.gradient}
           >
-            <MaterialCommunityIcons name="qrcode-scan" size={60} color={COLORS.surface} />
+            <MaterialCommunityIcons
+              name="bell-ring-outline"
+              size={76}
+              color={COLORS.surface}
+            />
           </LinearGradient>
         </View>
 
-        <Text style={styles.title}>Scan & Track</Text>
-        <Text style={styles.subtitle}>QR Code Access</Text>
-        <Text style={styles.description}>
-          Family members can scan a QR code to get real-time updates about surgery progress without needing an account.
+        <Text style={styles.title}>Stay Informed</Text>
+        <Text style={styles.subtitle}>
+          Receive important updates when a surgery moves from preparation to
+          operation, recovery, or completion.
         </Text>
+
+        <View style={styles.infoCard}>
+          <MaterialCommunityIcons
+            name="clock-check-outline"
+            size={28}
+            color={COLORS.primary}
+          />
+          <View style={styles.infoText}>
+            <Text style={styles.infoTitle}>Real-time updates</Text>
+            <Text style={styles.infoBody}>
+              See the latest available surgery status without repeatedly
+              calling the hospital.
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.bottomSection}>
-        <View style={styles.dotsRow}>
+      <View style={styles.footer}>
+        <View style={styles.dots}>
           <View style={styles.dot} />
-          <View style={[styles.dot, styles.dotActive]} />
+          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
         </View>
 
-        <Pressable
-          onPress={handleNext}
-          style={({ pressed }) => [pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.button}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.buttonLabel}>Next</Text>
-            <View style={styles.arrowCircle}>
-              <MaterialCommunityIcons name="arrow-right" size={18} color={COLORS.primary} />
-            </View>
-          </LinearGradient>
-        </Pressable>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={20}
+              color={COLORS.primary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button} onPress={onNext}>
+            <Text style={styles.buttonText}>Continue</Text>
+            <MaterialCommunityIcons
+              name="arrow-right"
+              size={20}
+              color={COLORS.surface}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -87,82 +86,107 @@ export default function OnboardingScreen2() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8 },
-  backCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  heroCircle: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    padding: 6,
+    marginBottom: 34,
+  },
+  gradient: {
+    flex: 1,
+    borderRadius: 82,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  skipPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  skipText: { fontFamily: FONTS.medium, fontSize: 13, color: COLORS.textMuted },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  iconRing: {
-    width: 152,
-    height: 152,
-    borderRadius: 76,
-    marginBottom: 40,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  iconGradientBg: {
-    width: 152,
-    height: 152,
-    borderRadius: 76,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: { fontSize: 40, fontFamily: FONTS.bold, color: COLORS.text, marginBottom: 10, letterSpacing: -0.5 },
-  subtitle: { fontSize: 17, fontFamily: FONTS.semiBold, color: COLORS.primary, marginBottom: 20 },
-  description: {
-    fontSize: 15,
-    fontFamily: FONTS.regular,
-    color: COLORS.textMuted,
+  title: {
+    fontSize: 28,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
     textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 15,
     lineHeight: 23,
-    paddingHorizontal: 8,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
   },
-  bottomSection: { paddingHorizontal: 32, paddingBottom: 32 },
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 28 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.border },
-  dotActive: { width: 24, backgroundColor: COLORS.primary },
-  button: {
+  infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 32,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  buttonLabel: { fontFamily: FONTS.bold, fontSize: 17, color: COLORS.surface, marginRight: 12 },
-  arrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    alignItems: 'flex-start',
+    gap: 14,
+    width: '100%',
     backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 18,
+    marginTop: 28,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  infoText: { flex: 1 },
+  infoTitle: {
+    fontSize: 15,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+  infoBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  footer: { padding: 24 },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.border,
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: COLORS.primary,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  backButton: {
+    width: 56,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  button: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 18,
+    paddingVertical: 17,
+  },
+  buttonText: {
+    color: COLORS.surface,
+    fontSize: 16,
+    fontFamily: FONTS.bold,
   },
 });

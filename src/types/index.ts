@@ -12,7 +12,14 @@ export interface UserProfile {
   updatedAt: Date;
 }
 
-export type SurgeryStatus = 'scheduled' | 'pre_op' | 'in_surgery' | 'recovery' | 'completed' | 'cancelled' | 'emergency';
+export type SurgeryStatus =
+  | 'scheduled'
+  | 'pre_op'
+  | 'in_surgery'
+  | 'recovery'
+  | 'completed'
+  | 'cancelled'
+  | 'emergency';
 
 export interface SurgeryOperation {
   id: string;
@@ -36,6 +43,7 @@ export interface SurgeryOperation {
   anesthesiaType?: string;
   notes?: string;
   createdBy: string;
+  createdAt: Date;
   updatedAt: Date;
 }
 
@@ -60,7 +68,7 @@ export interface Notification {
   id: string;
   title: string;
   body: string;
-  type: 'status_update' | 'reminder' | 'system';
+  type: 'status_update' | 'reminder' | 'system' | 'emergency';
   surgeryId?: string;
   read: boolean;
   createdAt: Date;
