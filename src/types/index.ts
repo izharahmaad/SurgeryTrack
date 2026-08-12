@@ -1,4 +1,10 @@
-export type UserRole = 'super_admin' | 'admin' | 'receptionist' | 'doctor' | 'nurse' | 'family';
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'receptionist'
+  | 'doctor'
+  | 'nurse'
+  | 'family';
 
 export interface UserProfile {
   uid: string;
@@ -66,10 +72,15 @@ export interface Hospital {
 
 export interface Notification {
   id: string;
+  userId: string;
   title: string;
   body: string;
-  type: 'status_update' | 'reminder' | 'system' | 'emergency';
+  type:
+    | 'status_update'
+    | 'reminder'
+    | 'system'
+    | 'emergency';
   surgeryId?: string;
   read: boolean;
-  createdAt: Date;
+  createdAt: Date | any;
 }

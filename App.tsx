@@ -1,16 +1,27 @@
 import './src/services/firebase';
 import './src/utils/setupText';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  ActivityIndicator,
+  View,
+} from 'react-native';
+
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import {
   NavigationContainer,
-  CommonActions,
 } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+} from '@react-navigation/native-stack';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
@@ -43,11 +54,44 @@ import UpdateStatusScreen from './src/screens/hospital/UpdateStatusScreen';
 import ScanScreen from './src/screens/family/ScanScreen';
 import ChatBotScreen from './src/screens/family/ChatBotScreen';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
-const Stack = createNativeStackNavigator();
+const ONBOARDING_COMPLETED_KEY =
+  '@surgerytrack/onboarding_completed';
 
-const ONBOARDING_COMPLETED_KEY = '@surgerytrack/onboarding_completed';
+type RootStackParamList = {
+  Dashboard: undefined;
+  CreateSurgery: undefined;
+  SurgeryDetail: {
+    surgeryId: string;
+  };
+  UpdateStatus: {
+    surgeryId?: string;
+  };
+  Scan: undefined;
+  ChatBot: undefined;
+};
+
+type AuthStackParamList = {
+  RoleSelection: undefined;
+  StaffRoleSelection: undefined;
+  Login: undefined;
+};
+
+type OnboardingStackParamList = {
+  Onboarding1: undefined;
+  Onboarding2: undefined;
+  Onboarding3: undefined;
+};
+
+const MainStack =
+  createNativeStackNavigator<RootStackParamList>();
+
+const AuthStack =
+  createNativeStackNavigator<AuthStackParamList>();
+
+const OnboardingStack =
+  createNativeStackNavigator<OnboardingStackParamList>();
 
 type StartupRoute =
   | 'onboarding'
@@ -69,9 +113,14 @@ export default function App() {
     Poppins_800ExtraBold,
   });
 
-  const [showCustomSplash, setShowCustomSplash] = useState(true);
-  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [showCustomSplash, setShowCustomSplash] =
+    useState(true);
+
+  const [onboardingLoaded, setOnboardingLoaded] =
+    useState(false);
+
+  const [onboardingCompleted, setOnboardingCompleted] =
+    useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -84,21 +133,25 @@ export default function App() {
           ONBOARDING_COMPLETED_KEY
         );
 
-        if (mounted) {
-          setOnboardingCompleted(completed === 'true');
-          setOnboardingLoaded(true);
+        if (!mounted) {
+          return;
         }
+
+        setOnboardingCompleted(completed === 'true');
+        setOnboardingLoaded(true);
       } catch (error) {
         console.error('App bootstrap error:', error);
 
-        if (mounted) {
-          setOnboardingCompleted(false);
-          setOnboardingLoaded(true);
+        if (!mounted) {
+          return;
         }
+
+        setOnboardingCompleted(false);
+        setOnboardingLoaded(true);
       }
     };
 
-    bootstrapApp();
+    void bootstrapApp();
 
     return () => {
       mounted = false;
@@ -106,29 +159,53 @@ export default function App() {
   }, [initAuth]);
 
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded && !isLoading && onboardingLoaded) {
+    if (
+      fontsLoaded &&
+      !isLoading &&
+      onboardingLoaded
+    ) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, isLoading, onboardingLoaded]);
+  }, [
+    fontsLoaded,
+    isLoading,
+    onboardingLoaded,
+  ]);
 
-  const finishOnboarding = async () => {
-    await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+  const finishOnboarding = async (): Promise<void> => {
+    await AsyncStorage.setItem(
+      ONBOARDING_COMPLETED_KEY,
+      'true'
+    );
+
     setOnboardingCompleted(true);
   };
 
-  if (!fontsLoaded || isLoading || !onboardingLoaded) {
+  if (
+    !fontsLoaded ||
+    isLoading ||
+    !onboardingLoaded
+  ) {
     return (
-      <View style={styles.bootContainer}>
-        <ActivityIndicator size="large" color="#F06292" />
+      <View
+        style={styles.bootContainer}
+        onLayout={onLayoutRootView}
+      >
+        <ActivityIndicator
+          size="large"
+          color="#F06292"
+        />
       </View>
     );
   }
 
   if (showCustomSplash) {
     return (
-      <View style={styles.bootContainer} onLayout={onLayoutRootView}>
+      <View style={styles.bootContainer}>
         <AnimatedSplash
-          onFinish={() => setShowCustomSplash(false)}
+          onFinish={() => {
+            setShowCustomSplash(false);
+          }}
         />
       </View>
     );
@@ -137,8 +214,8 @@ export default function App() {
   const startupRoute: StartupRoute = user
     ? 'main'
     : onboardingCompleted
-    ? 'auth'
-    : 'onboarding';
+      ? 'auth'
+      : 'onboarding';
 
   return (
     <SafeAreaProvider>
@@ -153,7 +230,9 @@ export default function App() {
           )}
 
           {startupRoute === 'onboarding' && (
-            <OnboardingNavigator onComplete={finishOnboarding} />
+            <OnboardingNavigator
+              onComplete={finishOnboarding}
+            />
           )}
         </NavigationContainer>
 
@@ -166,68 +245,68 @@ export default function App() {
 
 function MainNavigator() {
   return (
-    <Stack.Navigator
+    <MainStack.Navigator
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen
+      <MainStack.Screen
         name="Dashboard"
         component={BottomTabNavigator}
       />
 
-      <Stack.Screen
+      <MainStack.Screen
         name="CreateSurgery"
         component={CreateSurgeryScreen}
       />
 
-      <Stack.Screen
+      <MainStack.Screen
         name="SurgeryDetail"
         component={SurgeryDetailScreen}
       />
 
-      <Stack.Screen
+      <MainStack.Screen
         name="UpdateStatus"
         component={UpdateStatusScreen}
       />
 
-      <Stack.Screen
+      <MainStack.Screen
         name="Scan"
         component={ScanScreen}
       />
 
-      <Stack.Screen
+      <MainStack.Screen
         name="ChatBot"
         component={ChatBotScreen}
       />
-    </Stack.Navigator>
+    </MainStack.Navigator>
   );
 }
 
 function AuthNavigator() {
   return (
-    <Stack.Navigator
+    <AuthStack.Navigator
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen
+      <AuthStack.Screen
         name="RoleSelection"
         component={RoleSelectionScreen}
       />
 
-      <Stack.Screen
+      <AuthStack.Screen
         name="StaffRoleSelection"
         component={StaffRoleSelectionScreen}
       />
 
-      <Stack.Screen
+      <AuthStack.Screen
         name="Login"
         component={LoginScreen}
       />
-    </Stack.Navigator>
+    </AuthStack.Navigator>
   );
 }
 
@@ -237,39 +316,46 @@ function OnboardingNavigator({
   onComplete: () => Promise<void>;
 }) {
   return (
-    <Stack.Navigator
+    <OnboardingStack.Navigator
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="Onboarding1">
-        {(props) => (
+      <OnboardingStack.Screen name="Onboarding1">
+        {({ navigation }) => (
           <OnboardingScreen1
-            {...props}
-            onFinish={onComplete}
+            onNext={() => {
+              navigation.navigate('Onboarding2');
+            }}
           />
         )}
-      </Stack.Screen>
-AA
-      <Stack.Screen name="Onboarding2">
-        {(props) => (
-          <OnboardingScreen2
-            {...props}
-            onFinish={onComplete}
-          />
-        )}
-      </Stack.Screen>
+      </OnboardingStack.Screen>
 
-      <Stack.Screen name="Onboarding3">
-        {(props) => (
+      <OnboardingStack.Screen name="Onboarding2">
+        {({ navigation }) => (
+          <OnboardingScreen2
+            onBack={() => {
+              navigation.goBack();
+            }}
+            onNext={() => {
+              navigation.navigate('Onboarding3');
+            }}
+          />
+        )}
+      </OnboardingStack.Screen>
+
+      <OnboardingStack.Screen name="Onboarding3">
+        {({ navigation }) => (
           <OnboardingScreen3
-            {...props}
+            onBack={() => {
+              navigation.goBack();
+            }}
             onFinish={onComplete}
           />
         )}
-      </Stack.Screen>
-    </Stack.Navigator>
+      </OnboardingStack.Screen>
+    </OnboardingStack.Navigator>
   );
 }
 

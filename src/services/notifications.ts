@@ -1,81 +1,130 @@
-import { db } from './firebase';
 import {
   collection,
-  doc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  updateDoc,
   deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  where,
   writeBatch,
-  serverTimestamp,
-  addDoc,
+  type DocumentData,
+  type QuerySnapshot,
+  type Unsubscribe,
 } from 'firebase/firestore';
-import { Notification } from '@/types';
 
-const NOTIFICATIONS_COLLECTION = 'notifications';
+import { db } from './firebase';
+import type { Notification } from '../types';
 
-export const subscribeToNotifications = (
+type NotificationType = Notification['type'];
+
+function getNotificationType(
+  value: unknown
+): NotificationType {
+  if (
+    value === 'status_update' ||
+    value === 'reminder' ||
+    value === 'system' ||
+    value === 'emergency'
+  ) {
+    return value;
+  }
+
+  return 'system';
+}
+
+export function subscribeToNotifications(
   userId: string,
-  callback: (notifications: Notification[]) => void
-) => {
-  const q = query(
-    collection(db, NOTIFICATIONS_COLLECTION),
+  onData: (data: Notification[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const notificationsQuery = query(
+    collection(db, 'notifications'),
     where('userId', '==', userId),
     orderBy('createdAt', 'desc')
   );
 
   return onSnapshot(
-    q,
-    (snapshot) => {
-      const notifications = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Notification[];
-      callback(notifications);
+    notificationsQuery,
+    (snapshot: QuerySnapshot<DocumentData>) => {
+      const data: Notification[] = snapshot.docs.map(
+        (item): Notification => {
+          const raw = item.data();
+
+          return {
+            id: item.id,
+            userId: String(raw.userId ?? ''),
+            title: String(raw.title ?? ''),
+            body: String(raw.body ?? ''),
+            read: Boolean(raw.read ?? false),
+            createdAt: raw.createdAt ?? new Date(),
+            type: getNotificationType(raw.type),
+            surgeryId: raw.surgeryId
+              ? String(raw.surgeryId)
+              : undefined,
+          };
+        }
+      );
+
+      onData(data);
     },
     (error) => {
-      console.error('subscribeToNotifications error:', error.code, error.message);
-      callback([]);
+      console.error(
+        'subscribeToNotifications error:',
+        error
+      );
+
+      onError?.(error);
     }
   );
-};
+}
 
-export const markNotificationRead = async (notificationId: string): Promise<void> => {
-  const docRef = doc(db, NOTIFICATIONS_COLLECTION, notificationId);
-  await updateDoc(docRef, { read: true });
-};
+export async function markNotificationRead(
+  notificationId: string
+): Promise<void> {
+  const notificationRef = doc(
+    db,
+    'notifications',
+    notificationId
+  );
 
-export const markAllNotificationsRead = async (
-  notifications: Notification[]
-): Promise<void> => {
-  const unread = notifications.filter((n) => !n.read);
-  if (unread.length === 0) return;
+  await updateDoc(notificationRef, {
+    read: true,
+  });
+}
+
+export async function markAllNotificationsRead(
+  notificationIds: string[]
+): Promise<void> {
+  if (notificationIds.length === 0) {
+    return;
+  }
 
   const batch = writeBatch(db);
-  unread.forEach((n) => {
-    const docRef = doc(db, NOTIFICATIONS_COLLECTION, n.id);
-    batch.update(docRef, { read: true });
+
+  notificationIds.forEach((notificationId) => {
+    const notificationRef = doc(
+      db,
+      'notifications',
+      notificationId
+    );
+
+    batch.update(notificationRef, {
+      read: true,
+    });
   });
+
   await batch.commit();
-};
+}
 
-export const deleteNotification = async (notificationId: string): Promise<void> => {
-  const docRef = doc(db, NOTIFICATIONS_COLLECTION, notificationId);
-  await deleteDoc(docRef);
-};
+export async function deleteNotification(
+  notificationId: string
+): Promise<void> {
+  const notificationRef = doc(
+    db,
+    'notifications',
+    notificationId
+  );
 
-export const createNotification = async (data: {
-  userId: string;
-  title: string;
-  body: string;
-  type: string;
-  surgeryId?: string;
-}): Promise<void> => {
-  await addDoc(collection(db, NOTIFICATIONS_COLLECTION), {
-    ...data,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
-};
+  await deleteDoc(notificationRef);
+}

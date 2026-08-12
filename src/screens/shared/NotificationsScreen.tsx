@@ -1,287 +1,560 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
-  RefreshControl,
-  Alert,
-  ActivityIndicator,
-  SectionList,
+  View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+} from 'react-native-reanimated';
+
 import { COLORS, FONTS } from '../../constants';
-import { Notification } from '../../types';
+import type { Notification } from '../../types';
+
 import {
-  subscribeToNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
   deleteNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+  subscribeToNotifications,
 } from '../../services/notifications';
+
 import { useAuthStore } from '../../hooks/useAuthStore';
 
 type FilterType = 'all' | 'unread';
 
+type NotificationSection = {
+  title: string;
+  data: Notification[];
+};
+
 function toSafeDate(value: any): Date {
-  if (!value) return new Date();
-  if (value instanceof Date) return value;
-  if (typeof value?.toDate === 'function') return value.toDate();
-  const parsed = new Date(value);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
+  if (!value) {
+    return new Date();
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value?.toDate === 'function') {
+    return value.toDate();
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? new Date()
+    : date;
 }
 
-function formatRelativeTime(value: any) {
+function formatRelativeTime(value: any): string {
   const created = toSafeDate(value).getTime();
-  const now = Date.now();
-  const diffMs = now - created;
-  const diffMin = Math.floor(diffMs / (1000 * 60));
-  const diffHour = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDay = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const difference = Date.now() - created;
 
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
+  const minutes = Math.floor(
+    difference / (1000 * 60)
+  );
+
+  const hours = Math.floor(
+    difference / (1000 * 60 * 60)
+  );
+
+  const days = Math.floor(
+    difference / (1000 * 60 * 60 * 24)
+  );
+
+  if (minutes < 1) {
+    return 'Just now';
+  }
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
   return toSafeDate(value).toLocaleDateString();
 }
 
-function isToday(value: any) {
+function isToday(value: any): boolean {
   const date = toSafeDate(value);
-  const now = new Date();
+  const today = new Date();
+
   return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
   );
+}
+
+function getIcon(type?: string): string {
+  switch (type) {
+    case 'status_update':
+      return 'heart-pulse';
+
+    case 'reminder':
+      return 'clock-alert';
+
+    case 'emergency':
+      return 'alert-decagram';
+
+    default:
+      return 'information-outline';
+  }
+}
+
+function getIconColor(type?: string): string {
+  switch (type) {
+    case 'status_update':
+      return COLORS.success;
+
+    case 'reminder':
+      return COLORS.warning;
+
+    case 'emergency':
+      return COLORS.error;
+
+    default:
+      return COLORS.info;
+  }
+}
+
+function getTypeLabel(type?: string): string {
+  switch (type) {
+    case 'status_update':
+      return 'Status';
+
+    case 'reminder':
+      return 'Reminder';
+
+    case 'emergency':
+      return 'Emergency';
+
+    default:
+      return 'System';
+  }
 }
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+
   const [items, setItems] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const previousIds = useRef<Set<string>>(new Set());
-  const isFirstLoad = useRef(true);
+  const firstLoad = useRef(true);
 
   useEffect(() => {
     if (!user?.uid) {
+      setItems([]);
       setLoading(false);
       return;
     }
 
-    const unsubscribe = subscribeToNotifications(user.uid, (data) => {
-      if (!isFirstLoad.current) {
-        const newOnes = data.filter((n) => !previousIds.current.has(n.id));
-        if (newOnes.length > 0) {
-          const hasEmergency = newOnes.some(
-            (n) => n.type === 'emergency' || n.type === 'status_update'
-          );
-          Haptics.notificationAsync(
-            hasEmergency
-              ? Haptics.NotificationFeedbackType.Warning
-              : Haptics.NotificationFeedbackType.Success
-          );
-        }
-      }
-      previousIds.current = new Set(data.map((n) => n.id));
-      isFirstLoad.current = false;
-      setItems(data);
-      setLoading(false);
-    });
+    setLoading(true);
 
-    return () => unsubscribe();
+    const unsubscribe = subscribeToNotifications(
+      user.uid,
+      (data: Notification[]) => {
+        if (!firstLoad.current) {
+          const newNotifications = data.filter(
+            (item) =>
+              !previousIds.current.has(item.id)
+          );
+
+          if (newNotifications.length > 0) {
+            const important = newNotifications.some(
+              (item) =>
+                item.type === 'emergency' ||
+                item.type === 'status_update'
+            );
+
+            Haptics.notificationAsync(
+              important
+                ? Haptics.NotificationFeedbackType.Warning
+                : Haptics.NotificationFeedbackType.Success
+            );
+          }
+        }
+
+        previousIds.current = new Set(
+          data.map((item) => item.id)
+        );
+
+        firstLoad.current = false;
+
+        setItems(data);
+        setLoading(false);
+      },
+      (error: Error) => {
+        console.error(
+          'Notification subscription error:',
+          error
+        );
+
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, [user?.uid]);
 
-  const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
+  const unreadCount = useMemo(() => {
+    return items.filter((item) => !item.read).length;
+  }, [items]);
 
   const filteredItems = useMemo(() => {
-    return filter === 'unread' ? items.filter((item) => !item.read) : items;
+    if (filter === 'unread') {
+      return items.filter((item) => !item.read);
+    }
+
+    return items;
   }, [items, filter]);
 
-  const sections = useMemo(() => {
-    const todayItems = filteredItems.filter((item) => isToday(item.createdAt));
-    const earlierItems = filteredItems.filter((item) => !isToday(item.createdAt));
-    const result = [];
-    if (todayItems.length > 0) result.push({ title: 'Today', data: todayItems });
-    if (earlierItems.length > 0) result.push({ title: 'Earlier', data: earlierItems });
+  const sections = useMemo<NotificationSection[]>(() => {
+    const today = filteredItems.filter((item) =>
+      isToday(item.createdAt)
+    );
+
+    const earlier = filteredItems.filter(
+      (item) => !isToday(item.createdAt)
+    );
+
+    const result: NotificationSection[] = [];
+
+    if (today.length > 0) {
+      result.push({
+        title: 'Today',
+        data: today,
+      });
+    }
+
+    if (earlier.length > 0) {
+      result.push({
+        title: 'Earlier',
+        data: earlier,
+      });
+    }
+
     return result;
   }, [filteredItems]);
 
-  const markRead = async (id: string) => {
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const handleMarkRead = async (id: string) => {
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? { ...item, read: true }
+          : item
+      )
+    );
+
     try {
       await markNotificationRead(id);
     } catch (error) {
-      console.error('Failed to mark read:', error);
+      console.error(
+        'Failed to mark notification read:',
+        error
+      );
     }
   };
 
-  const markAllAsRead = async () => {
+  const handleMarkAllRead = async () => {
+    const unreadIds = items
+      .filter((item) => !item.read)
+      .map((item) => item.id);
+
+    if (unreadIds.length === 0) {
+      return;
+    }
+
     Haptics.selectionAsync();
-    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    setItems((current) =>
+      current.map((item) => ({
+        ...item,
+        read: true,
+      }))
+    );
+
     try {
-      await markAllNotificationsRead(items);
+      await markAllNotificationsRead(unreadIds);
     } catch (error) {
-      console.error('Failed to mark all read:', error);
+      console.error(
+        'Failed to mark all notifications read:',
+        error
+      );
     }
   };
 
   const handleDelete = (item: Notification) => {
-    Alert.alert('Delete Notification', 'Remove this notification permanently?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setItems((prev) => prev.filter((n) => n.id !== item.id));
-          try {
-            await deleteNotification(item.id);
-          } catch (error) {
-            console.error('Failed to delete:', error);
-          }
+    Alert.alert(
+      'Delete Notification',
+      'Remove this notification permanently?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]);
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setItems((current) =>
+              current.filter(
+                (notification) =>
+                  notification.id !== item.id
+              )
+            );
+
+            try {
+              await deleteNotification(item.id);
+            } catch (error) {
+              console.error(
+                'Failed to delete notification:',
+                error
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTimeout(() => setRefreshing(false), 700);
-  };
-
-  const handlePressNotification = (item: Notification) => {
+  const handleNotificationPress = async (
+    item: Notification
+  ) => {
     Haptics.selectionAsync();
-    if (!item.read) markRead(item.id);
+
+    if (!item.read) {
+      await handleMarkRead(item.id);
+    }
+
     if (item.surgeryId) {
-      navigation.navigate('SurgeryDetail', { surgeryId: item.surgeryId });
+      navigation.navigate('SurgeryDetail', {
+        surgeryId: item.surgeryId,
+      });
     }
   };
 
-  const getIcon = (type: string) => {
-    if (type === 'status_update') return 'heart-pulse';
-    if (type === 'reminder') return 'clock-alert';
-    if (type === 'emergency') return 'alert-decagram';
-    return 'information-outline';
+  const handleRefresh = () => {
+    setRefreshing(true);
+
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 700);
   };
 
-  const getIconColor = (type: string) => {
-    if (type === 'status_update') return COLORS.success;
-    if (type === 'reminder') return COLORS.warning;
-    if (type === 'emergency') return COLORS.error;
-    return COLORS.info;
-  };
+  const renderHeader = () => {
+    return (
+      <View style={styles.headerContainer}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={22}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
 
-  const getTypeLabel = (type: string) => {
-    if (type === 'status_update') return 'Status';
-    if (type === 'reminder') return 'Reminder';
-    if (type === 'emergency') return 'Emergency';
-    return 'System';
-  };
+          <View style={styles.titleContainer}>
+            <Text style={styles.headerTitle}>
+              Notifications
+            </Text>
 
-  const renderHeader = () => (
-    <View style={styles.topSection}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.85}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.text} />
-        </TouchableOpacity>
-
-        <View style={styles.titleWrap}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Live updates from Firestore</Text>
-        </View>
-
-        {unreadCount > 0 && (
-          <View style={styles.badgeWrap}>
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-            </View>
+            <Text style={styles.headerSubtitle}>
+              Live updates from Firestore
+            </Text>
           </View>
-        )}
-      </View>
 
-      <View style={styles.actionRow}>
-        <View style={styles.filters}>
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
-            onPress={() => setFilter('all')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>All</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'unread' && styles.filterChipActive]}
-            onPress={() => setFilter('unread')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.filterText, filter === 'unread' && styles.filterTextActive]}>Unread</Text>
-          </TouchableOpacity>
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead} activeOpacity={0.85}>
-            <Text style={styles.markAll}>Mark all read</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+        <View style={styles.actionRow}>
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                filter === 'all' &&
+                  styles.activeFilterButton,
+              ]}
+              onPress={() => setFilter('all')}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === 'all' &&
+                    styles.activeFilterText,
+                ]}
+              >
+                All
+              </Text>
+            </TouchableOpacity>
 
-  const renderEmpty = () => (
-    <View style={styles.emptyWrap}>
-      <View style={styles.emptyIconWrap}>
-        <MaterialCommunityIcons name="bell-check-outline" size={34} color={COLORS.primary} />
-      </View>
-      <Text style={styles.emptyTitle}>All caught up</Text>
-      <Text style={styles.emptyBody}>
-        You have no {filter === 'unread' ? 'unread ' : ''}notifications right now.
-      </Text>
-    </View>
-  );
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                filter === 'unread' &&
+                  styles.activeFilterButton,
+              ]}
+              onPress={() => setFilter('unread')}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === 'unread' &&
+                    styles.activeFilterText,
+                ]}
+              >
+                Unread
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-  const renderItem = ({ item, index }: { item: Notification; index: number }) => {
+          {unreadCount > 0 && (
+            <TouchableOpacity
+              onPress={handleMarkAllRead}
+            >
+              <Text style={styles.markAllText}>
+                Mark all read
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderEmpty = () => {
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialCommunityIcons
+          name="bell-check-outline"
+          size={42}
+          color={COLORS.primary}
+        />
+
+        <Text style={styles.emptyTitle}>
+          All caught up
+        </Text>
+
+        <Text style={styles.emptyText}>
+          You have no{' '}
+          {filter === 'unread' ? 'unread ' : ''}
+          notifications right now.
+        </Text>
+      </View>
+    );
+  };
+
+  const renderItem = ({
+    item,
+    index,
+  }: {
+    item: Notification;
+    index: number;
+  }) => {
     const iconColor = getIconColor(item.type);
 
     return (
-      <Animated.View entering={FadeInDown.delay(index * 40).duration(300)}>
+      <Animated.View
+        entering={FadeInDown
+          .delay(index * 40)
+          .duration(300)}
+      >
         <TouchableOpacity
-          onPress={() => handlePressNotification(item)}
-          onLongPress={() => handleDelete(item)}
+          style={[
+            styles.card,
+            !item.read && styles.unreadCard,
+          ]}
           activeOpacity={0.9}
-          style={[styles.card, !item.read && styles.unreadCard]}
+          onPress={() =>
+            handleNotificationPress(item)
+          }
+          onLongPress={() => handleDelete(item)}
         >
-          <View style={[styles.iconWrap, { backgroundColor: `${iconColor}18` }]}>
-            <MaterialCommunityIcons name={getIcon(item.type) as any} size={22} color={iconColor} />
+          <View
+            style={[
+              styles.iconContainer,
+              {
+                backgroundColor: `${iconColor}18`,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={getIcon(item.type) as any}
+              size={22}
+              color={iconColor}
+            />
           </View>
 
-          <View style={styles.textWrap}>
-            <View style={styles.rowTop}>
-              <View style={[styles.typePill, { backgroundColor: `${iconColor}15` }]}>
-                <Text style={[styles.typePillText, { color: iconColor }]}>{getTypeLabel(item.type)}</Text>
-              </View>
-              <Text style={styles.time}>{formatRelativeTime(item.createdAt)}</Text>
+          <View style={styles.contentContainer}>
+            <View style={styles.topRow}>
+              <Text
+                style={[
+                  styles.typeText,
+                  { color: iconColor },
+                ]}
+              >
+                {getTypeLabel(item.type)}
+              </Text>
+
+              <Text style={styles.timeText}>
+                {formatRelativeTime(item.createdAt)}
+              </Text>
             </View>
 
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.body}>{item.body}</Text>
+            <Text style={styles.notificationTitle}>
+              {item.title}
+            </Text>
 
-            {item.surgeryId ? (
-              <View style={styles.linkRow}>
-                <MaterialCommunityIcons name="arrow-right" size={14} color={COLORS.primary} />
-                <Text style={styles.linkText}>Open surgery details</Text>
-              </View>
-            ) : null}
+            <Text style={styles.notificationBody}>
+              {item.body}
+            </Text>
+
+            {item.surgeryId && (
+              <Text style={styles.surgeryLink}>
+                Open surgery details →
+              </Text>
+            )}
           </View>
 
-          {!item.read && <View style={styles.dot} />}
+          {!item.read && <View style={styles.unreadDot} />}
         </TouchableOpacity>
       </Animated.View>
     );
@@ -291,8 +564,12 @@ export default function NotificationsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         {renderHeader()}
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color={COLORS.primary}
+          />
         </View>
       </SafeAreaView>
     );
@@ -300,23 +577,31 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SectionList
+      <SectionList<Notification, NotificationSection>
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         renderSectionHeader={({ section }) => (
-          <Text style={styles.sectionHeader}>{section.title}</Text>
+          <Text style={styles.sectionTitle}>
+            {section.title}
+          </Text>
         )}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={sections.length === 0 ? renderEmpty : null}
-        contentContainerStyle={[styles.list, sections.length === 0 && styles.emptyListContent]}
+        ListEmptyComponent={
+          sections.length === 0
+            ? renderEmpty
+            : null
+        }
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         stickySectionHeadersEnabled={false}
+        ItemSeparatorComponent={() => (
+          <View style={styles.separator} />
+        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
           />
@@ -327,15 +612,33 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
 
-  list: { paddingHorizontal: 18, paddingBottom: 24 },
-  emptyListContent: { flexGrow: 1 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  topSection: { paddingTop: 6, paddingBottom: 18 },
-  headerRow: { flexDirection: 'row', alignItems: 'center' },
-  backBtn: {
+  listContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+  },
+
+  headerContainer: {
+    paddingTop: 8,
+    paddingBottom: 18,
+  },
+
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  backButton: {
     width: 46,
     height: 46,
     borderRadius: 15,
@@ -345,11 +648,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  titleWrap: { flex: 1, marginLeft: 14 },
-  headerTitle: { fontSize: 22, fontFamily: FONTS.bold, color: COLORS.text },
-  headerSubtitle: { fontSize: 12, fontFamily: FONTS.regular, color: COLORS.textMuted, marginTop: 2 },
-  badgeWrap: { marginLeft: 10 },
-  unreadBadge: {
+
+  titleContainer: {
+    flex: 1,
+    marginLeft: 14,
+  },
+
+  headerTitle: {
+    fontSize: 22,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+
+  badge: {
     minWidth: 28,
     height: 28,
     borderRadius: 14,
@@ -358,11 +676,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unreadBadgeText: { color: COLORS.surface, fontSize: 12, fontFamily: FONTS.bold },
 
-  actionRow: { marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  filters: { flexDirection: 'row', gap: 10 },
-  filterChip: {
+  badgeText: {
+    color: COLORS.surface,
+    fontSize: 12,
+    fontFamily: FONTS.bold,
+  },
+
+  actionRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  filterRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+
+  filterButton: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
@@ -370,54 +703,132 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText: { fontSize: 13, fontFamily: FONTS.medium, color: COLORS.textSecondary },
-  filterTextActive: { color: COLORS.surface },
-  markAll: { fontSize: 13, fontFamily: FONTS.semiBold, color: COLORS.primary },
 
-  sectionHeader: {
+  activeFilterButton: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+
+  filterText: {
+    fontSize: 13,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+  },
+
+  activeFilterText: {
+    color: COLORS.surface,
+  },
+
+  markAllText: {
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primary,
+  },
+
+  sectionTitle: {
+    marginTop: 4,
+    marginBottom: 10,
     fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
-    marginBottom: 10,
-    marginTop: 4,
   },
 
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
     padding: 16,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  unreadCard: { backgroundColor: `${COLORS.primaryLight}10`, borderColor: `${COLORS.primary}25` },
-  iconWrap: { width: 46, height: 46, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  textWrap: { flex: 1 },
-  rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  typePill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
-  typePillText: { fontSize: 11, fontFamily: FONTS.semiBold },
-  title: { fontSize: 15, fontFamily: FONTS.semiBold, color: COLORS.text },
-  body: { fontSize: 13, lineHeight: 20, fontFamily: FONTS.regular, color: COLORS.textSecondary, marginTop: 4 },
-  time: { fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary, marginLeft: 10, marginTop: 8 },
 
-  linkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 4 },
-  linkText: { fontSize: 12, fontFamily: FONTS.medium, color: COLORS.primary },
+  unreadCard: {
+    backgroundColor: `${COLORS.primaryLight}10`,
+    borderColor: `${COLORS.primary}25`,
+  },
 
-  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: 80 },
-  emptyIconWrap: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: COLORS.primaryLight,
+  iconContainer: {
+    width: 46,
+    height: 46,
+    marginRight: 14,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
   },
-  emptyTitle: { fontSize: 20, fontFamily: FONTS.bold, color: COLORS.text },
-  emptyBody: {
+
+  contentContainer: {
+    flex: 1,
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
+  typeText: {
+    fontSize: 11,
+    fontFamily: FONTS.semiBold,
+  },
+
+  timeText: {
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+
+  notificationTitle: {
+    fontSize: 15,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+
+  notificationBody: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+  },
+
+  surgeryLink: {
+    marginTop: 10,
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    color: COLORS.primary,
+  },
+
+  unreadDot: {
+    width: 10,
+    height: 10,
+    marginLeft: 10,
+    marginTop: 8,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+  },
+
+  separator: {
+    height: 12,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    minHeight: 320,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+
+  emptyTitle: {
+    marginTop: 18,
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+
+  emptyText: {
     marginTop: 8,
     textAlign: 'center',
     fontSize: 14,
