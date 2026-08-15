@@ -19,6 +19,8 @@ import {
 // @ts-ignore: Firebase React Native persistence export is missing from the typings
 import { getReactNativePersistence } from 'firebase/auth';
 
+console.log('[firebase.ts] module loading');
+
 const firebaseConfig = {
   apiKey: 'AIzaSyD0zrKbNskPDKkMzrHv-9Wofs0BT4kTEwk',
   authDomain: 'surgerytrack-ec896.firebaseapp.com',
@@ -33,51 +35,54 @@ const app = getApps().length > 0
   ? getApp()
   : initializeApp(firebaseConfig);
 
+console.log('[firebase.ts] app initialized:', app.name);
+
 type FirebaseGlobal = typeof globalThis & {
   __SURGERYTRACK_AUTH__?: Auth;
 };
 
-const firebaseGlobal =
-  globalThis as FirebaseGlobal;
+const firebaseGlobal = globalThis as FirebaseGlobal;
 
 let auth: Auth;
 
 if (firebaseGlobal.__SURGERYTRACK_AUTH__) {
+  console.log('[firebase.ts] reusing existing auth instance');
   auth = firebaseGlobal.__SURGERYTRACK_AUTH__;
 } else {
   try {
-    auth = initializeAuth(app, {
-      persistence:
-        getReactNativePersistence(AsyncStorage),
-    });
-  } catch (error: unknown) {
-    const firebaseError = error as {
-      code?: string;
-    };
+    console.log('[firebase.ts] calling initializeAuth with persistence');
 
-    if (
-      firebaseError.code ===
-      'auth/already-initialized'
-    ) {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+
+    console.log('[firebase.ts] initializeAuth succeeded');
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string };
+
+    console.error('[firebase.ts] initializeAuth failed:', error);
+
+    if (firebaseError.code === 'auth/already-initialized') {
+      console.log('[firebase.ts] falling back to getAuth (already-initialized)');
       auth = getAuth(app);
     } else {
-      throw error;
+      console.log('[firebase.ts] falling back to getAuth (unexpected error)');
+      auth = getAuth(app);
     }
   }
 
   firebaseGlobal.__SURGERYTRACK_AUTH__ = auth;
 }
 
+console.log('[firebase.ts] auth ready');
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const sendPasswordReset = async (
-  email: string
-): Promise<void> => {
-  await sendPasswordResetEmail(
-    auth,
-    email.trim().toLowerCase()
-  );
+console.log('[firebase.ts] firestore and storage ready — module fully loaded');
+
+const sendPasswordReset = async (email: string): Promise<void> => {
+  await sendPasswordResetEmail(auth, email.trim().toLowerCase());
 };
 
 export {

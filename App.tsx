@@ -15,9 +15,11 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
+
 import {
   NavigationContainer,
 } from '@react-navigation/native';
+
 import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
@@ -84,6 +86,11 @@ type OnboardingStackParamList = {
   Onboarding3: undefined;
 };
 
+type StartupRoute =
+  | 'onboarding'
+  | 'auth'
+  | 'main';
+
 const MainStack =
   createNativeStackNavigator<RootStackParamList>();
 
@@ -92,11 +99,6 @@ const AuthStack =
 
 const OnboardingStack =
   createNativeStackNavigator<OnboardingStackParamList>();
-
-type StartupRoute =
-  | 'onboarding'
-  | 'auth'
-  | 'main';
 
 export default function App() {
   const {
@@ -122,15 +124,39 @@ export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] =
     useState(false);
 
+  const [bootstrapFinished, setBootstrapFinished] =
+    useState(false);
+
   useEffect(() => {
     let mounted = true;
 
     const bootstrapApp = async () => {
+      console.log('[App] bootstrap started');
+
       try {
-        await initAuth();
+        console.log('[App] calling initAuth');
+
+        await Promise.race([
+          initAuth(),
+          new Promise<void>((resolve) => {
+            setTimeout(() => {
+              console.warn(
+                '[App] initAuth timeout; continuing app startup'
+              );
+              resolve();
+            }, 8000);
+          }),
+        ]);
+
+        console.log('[App] initAuth finished');
 
         const completed = await AsyncStorage.getItem(
           ONBOARDING_COMPLETED_KEY
+        );
+
+        console.log(
+          '[App] onboarding value:',
+          completed
         );
 
         if (!mounted) {
@@ -139,8 +165,14 @@ export default function App() {
 
         setOnboardingCompleted(completed === 'true');
         setOnboardingLoaded(true);
+        setBootstrapFinished(true);
+
+        console.log('[App] bootstrap finished');
       } catch (error) {
-        console.error('App bootstrap error:', error);
+        console.error(
+          '[App] bootstrap error:',
+          error
+        );
 
         if (!mounted) {
           return;
@@ -148,6 +180,7 @@ export default function App() {
 
         setOnboardingCompleted(false);
         setOnboardingLoaded(true);
+        setBootstrapFinished(true);
       }
     };
 
@@ -158,18 +191,44 @@ export default function App() {
     };
   }, [initAuth]);
 
-  const onLayoutRootView = useCallback(async () => {
+  const hideNativeSplash = useCallback(async () => {
+    try {
+      await SplashScreen.hideAsync();
+    } catch (error) {
+      console.warn(
+        '[App] failed to hide native splash:',
+        error
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.warn(
+        '[App] forcing native splash to hide'
+      );
+
+      void hideNativeSplash();
+    }, 8000);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [hideNativeSplash]);
+
+  useEffect(() => {
     if (
       fontsLoaded &&
-      !isLoading &&
-      onboardingLoaded
+      onboardingLoaded &&
+      bootstrapFinished
     ) {
-      await SplashScreen.hideAsync();
+      void hideNativeSplash();
     }
   }, [
     fontsLoaded,
-    isLoading,
     onboardingLoaded,
+    bootstrapFinished,
+    hideNativeSplash,
   ]);
 
   const finishOnboarding = async (): Promise<void> => {
@@ -181,20 +240,15 @@ export default function App() {
     setOnboardingCompleted(true);
   };
 
-  if (
-    !fontsLoaded ||
-    isLoading ||
-    !onboardingLoaded
-  ) {
+  if (!fontsLoaded || !bootstrapFinished) {
     return (
-      <View
-        style={styles.bootContainer}
-        onLayout={onLayoutRootView}
-      >
+      <View style={styles.bootContainer}>
         <ActivityIndicator
           size="large"
           color="#F06292"
         />
+
+        <StatusBar style="auto" />
       </View>
     );
   }
@@ -204,9 +258,15 @@ export default function App() {
       <View style={styles.bootContainer}>
         <AnimatedSplash
           onFinish={() => {
+            console.log(
+              '[App] AnimatedSplash finished'
+            );
+
             setShowCustomSplash(false);
           }}
         />
+
+        <StatusBar style="auto" />
       </View>
     );
   }
@@ -216,6 +276,11 @@ export default function App() {
     : onboardingCompleted
       ? 'auth'
       : 'onboarding';
+
+  console.log(
+    '[App] rendering route:',
+    startupRoute
+  );
 
   return (
     <SafeAreaProvider>

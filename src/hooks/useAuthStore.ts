@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -6,7 +7,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  type Unsubscribe,
 } from 'firebase/auth';
+
 import {
   doc,
   getDoc,
@@ -15,14 +18,14 @@ import {
 } from 'firebase/firestore';
 
 import { auth, db } from '../services/firebase';
-import { UserProfile, UserRole } from '../types';
+import type { UserProfile, UserRole } from '../types';
 
 interface AuthState {
   user: UserProfile | null;
   isLoading: boolean;
   initialized: boolean;
 
-  initAuth: () => () => void;
+  initAuth: () => Promise<void>;
 
   login: (
     email: string,
@@ -42,6 +45,9 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+let authUnsubscribe: Unsubscribe | null = null;
+let authInitialization: Promise<void> | null = null;
+
 const getUserProfile = async (
   firebaseUid: string,
   fallbackEmail: string,
@@ -51,9 +57,12 @@ const getUserProfile = async (
   const userSnapshot = await getDoc(userRef);
 
   if (userSnapshot.exists()) {
+    const data =
+      userSnapshot.data() as Omit<UserProfile, 'uid'>;
+
     return {
       uid: firebaseUid,
-      ...(userSnapshot.data() as Omit<UserProfile, 'uid'>),
+      ...data,
     };
   }
 
@@ -67,27 +76,121 @@ const getUserProfile = async (
   };
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isLoading: true,
-  initialized: false,
+export const useAuthStore = create<AuthState>(
+  (set) => ({
+    user: null,
+    isLoading: true,
+    initialized: false,
 
-  initAuth: () => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (!firebaseUser) {
-          set({
-            user: null,
-            isLoading: false,
-            initialized: true,
-          });
-          return;
+    initAuth: async (): Promise<void> => {
+      if (authInitialization) {
+        return authInitialization;
+      }
+
+      authInitialization = new Promise<void>(
+        (resolve) => {
+          let firstCallbackCompleted = false;
+
+          const finishInitialization = () => {
+            if (firstCallbackCompleted) {
+              return;
+            }
+
+            firstCallbackCompleted = true;
+            resolve();
+          };
+
+          authUnsubscribe?.();
+
+          authUnsubscribe = onAuthStateChanged(
+            auth,
+            async (firebaseUser) => {
+              console.log(
+                '[Auth] auth state changed:',
+                firebaseUser?.uid ?? 'signed out'
+              );
+
+              try {
+                if (!firebaseUser) {
+                  set({
+                    user: null,
+                    isLoading: false,
+                    initialized: true,
+                  });
+
+                  finishInitialization();
+                  return;
+                }
+
+                const profile =
+                  await getUserProfile(
+                    firebaseUser.uid,
+                    firebaseUser.email ?? '',
+                    firebaseUser.displayName ?? ''
+                  );
+
+                set({
+                  user: profile,
+                  isLoading: false,
+                  initialized: true,
+                });
+
+                finishInitialization();
+              } catch (error) {
+                console.error(
+                  '[Auth] profile loading error:',
+                  error
+                );
+
+                set({
+                  user: null,
+                  isLoading: false,
+                  initialized: true,
+                });
+
+                finishInitialization();
+              }
+            },
+            (error) => {
+              console.error(
+                '[Auth] auth listener error:',
+                error
+              );
+
+              set({
+                user: null,
+                isLoading: false,
+                initialized: true,
+              });
+
+              finishInitialization();
+            }
+          );
         }
+      );
+
+      return authInitialization;
+    },
+
+    login: async (
+      email,
+      password
+    ): Promise<void> => {
+      set({ isLoading: true });
+
+      try {
+        const credential =
+          await signInWithEmailAndPassword(
+            auth,
+            email.trim().toLowerCase(),
+            password
+          );
 
         const profile = await getUserProfile(
-          firebaseUser.uid,
-          firebaseUser.email ?? '',
-          firebaseUser.displayName ?? ''
+          credential.user.uid,
+          credential.user.email ??
+            email.trim().toLowerCase(),
+          credential.user.displayName ?? ''
         );
 
         set({
@@ -96,94 +199,86 @@ export const useAuthStore = create<AuthState>((set) => ({
           initialized: true,
         });
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        set({ isLoading: false });
+        throw error;
+      }
+    },
+
+    register: async (
+      email,
+      password,
+      displayName,
+      role,
+      phoneNumber
+    ): Promise<void> => {
+      set({ isLoading: true });
+
+      try {
+        const cleanEmail = email
+          .trim()
+          .toLowerCase();
+
+        const cleanName = displayName.trim();
+        const cleanPhone = phoneNumber?.trim();
+
+        const credential =
+          await createUserWithEmailAndPassword(
+            auth,
+            cleanEmail,
+            password
+          );
+
+        await updateProfile(credential.user, {
+          displayName: cleanName,
+        });
+
+        const profile: UserProfile = {
+          uid: credential.user.uid,
+          email: cleanEmail,
+          displayName: cleanName,
+          role,
+          phoneNumber: cleanPhone || undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await setDoc(
+          doc(db, 'users', credential.user.uid),
+          {
+            ...profile,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
+        );
 
         set({
-          user: null,
+          user: profile,
           isLoading: false,
           initialized: true,
         });
+      } catch (error) {
+        set({ isLoading: false });
+        throw error;
       }
-    });
+    },
 
-    return unsubscribe;
-  },
+    forgotPassword: async (
+      email
+    ): Promise<void> => {
+      await sendPasswordResetEmail(
+        auth,
+        email.trim().toLowerCase()
+      );
+    },
 
-  login: async (email, password) => {
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
+    logout: async (): Promise<void> => {
+      await signOut(auth);
 
-    const profile = await getUserProfile(
-      credential.user.uid,
-      credential.user.email ?? email.trim(),
-      credential.user.displayName ?? ''
-    );
-
-    set({
-      user: profile,
-      isLoading: false,
-      initialized: true,
-    });
-  },
-
-  register: async (
-    email,
-    password,
-    displayName,
-    role,
-    phoneNumber
-  ) => {
-    const credential = await createUserWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
-
-    await updateProfile(credential.user, {
-      displayName: displayName.trim(),
-    });
-
-    const profile: UserProfile = {
-      uid: credential.user.uid,
-      email: email.trim(),
-      displayName: displayName.trim(),
-      role,
-      phoneNumber: phoneNumber?.trim() || undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await setDoc(doc(db, 'users', credential.user.uid), {
-      ...profile,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    set({
-      user: profile,
-      isLoading: false,
-      initialized: true,
-    });
-  },
-
-  forgotPassword: async (email) => {
-    await sendPasswordResetEmail(auth, email.trim());
-  },
-
-  logout: async () => {
-    await signOut(auth);
-
-    set({
-      user: null,
-      isLoading: false,
-      initialized: true,
-    });
-
-    // Important:
-    // Do not call AsyncStorage.clear().
-    // The onboarding-completed flag must remain saved.
-  },
-}));
+      set({
+        user: null,
+        isLoading: false,
+        initialized: true,
+      });
+    },
+  })
+);
