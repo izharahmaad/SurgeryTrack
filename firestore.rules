@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isHospitalStaff() {
+      return isAuthenticated() 
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getUserDoc().role in ['super_admin', 'admin', 'doctor', 'nurse', 'receptionist'];
+    }
+
+    function isAdminOrSuperAdmin() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getUserDoc().role in ['admin', 'super_admin'];
+    }
+
+    function isFamily() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getUserDoc().role == 'family';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ========== USERS ==========
+    match /users/{userId} {
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow read: if isOwner(userId) || isAdminOrSuperAdmin();
+      allow update: if isOwner(userId);
+      allow delete: if isAuthenticated() && getUserDoc().role == 'super_admin';
+    }
+
+    // ========== SURGERIES ==========
+    match /surgeries/{surgeryId} {
+      // CREATE: Hospital staff only
+      allow create: if isAuthenticated() && isHospitalStaff();
+      
+      // READ: Hospital staff can read all, family can read if their phone is in familyPhoneNumbers
+      allow read: if isAuthenticated() && (
+        isHospitalStaff() 
+        || (isFamily() && request.auth.token.phone_number in resource.data.familyPhoneNumbers)
+        || (isFamily() && resource.data.familyPhoneNumbers.hasAny([getUserDoc().phoneNumber]))
+      );
+      
+      // UPDATE: Hospital staff only
+      allow update: if isAuthenticated() && isHospitalStaff();
+      
+      // DELETE: Admin only
+      allow delete: if isAdminOrSuperAdmin();
+    }
+
+    // ========== DEFAULT DENY ==========
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

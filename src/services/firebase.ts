@@ -88,4 +88,4 @@ export {
   sendPasswordReset,
 };
 
-export default app; 
+export default app;

@@ -1,0 +1,43 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "surgeries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "familyPhoneNumbers",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "scheduledDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "surgeries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hospitalId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": []
+}
