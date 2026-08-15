@@ -1,28 +1,60 @@
-import { db } from './firebase';
 import {
   collection,
+  deleteDoc,
   doc,
-  setDoc,
   getDoc,
   getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
   onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  type Unsubscribe,
 } from 'firebase/firestore';
-import { SurgeryOperation } from '@/types';
+
+import { db } from './firebase';
+import type { SurgeryOperation } from '@/types';
 
 const SURGERIES_COLLECTION = 'surgeries';
 
-// ========== CRUD OPERATIONS ==========
+const surgeriesCollection = collection(
+  db,
+  SURGERIES_COLLECTION
+);
+
+function normalizePhone(phoneNumber: string): string {
+  return phoneNumber.trim();
+}
+
+function mapSurgery(
+  document: {
+    id: string;
+    data: () => Record<string, unknown>;
+  }
+): SurgeryOperation {
+  return {
+    id: document.id,
+    ...(document.data() as Omit<
+      SurgeryOperation,
+      'id'
+    >),
+  };
+}
+
+// ======================================================
+// CRUD
+// ======================================================
 
 export const createSurgery = async (
-  surgeryData: Omit<SurgeryOperation, 'id' | 'qrCodeData' | 'createdAt' | 'updatedAt'>
+  surgeryData: Omit<
+    SurgeryOperation,
+    'id' | 'qrCodeData' | 'createdAt' | 'updatedAt'
+  >
 ): Promise<string> => {
-  const surgeryRef = doc(collection(db, SURGERIES_COLLECTION));
+  const surgeryRef = doc(surgeriesCollection);
+
   const qrCodeData = JSON.stringify({
     surgeryId: surgeryRef.id,
     hospitalId: surgeryData.hospitalId,
@@ -40,32 +72,59 @@ export const createSurgery = async (
   return surgeryRef.id;
 };
 
-export const getSurgery = async (surgeryId: string): Promise<SurgeryOperation | null> => {
-  const docRef = doc(db, SURGERIES_COLLECTION, surgeryId);
-  const docSnap = await getDoc(docRef);
-  return docSnap.exists() ? (docSnap.data() as SurgeryOperation) : null;
+export const getSurgery = async (
+  surgeryId: string
+): Promise<SurgeryOperation | null> => {
+  const surgeryRef = doc(
+    db,
+    SURGERIES_COLLECTION,
+    surgeryId
+  );
+
+  const snapshot = await getDoc(surgeryRef);
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return mapSurgery(snapshot);
 };
 
-// ✅ Resolve a scanned QR payload back to a surgery record
-export const getSurgeryByQrData = async (qrData: string): Promise<SurgeryOperation | null> => {
+export const getSurgeryByQrData = async (
+  qrData: string
+): Promise<SurgeryOperation | null> => {
   try {
     const parsed = JSON.parse(qrData);
-    if (!parsed?.surgeryId) return null;
-    return await getSurgery(parsed.surgeryId);
+
+    if (!parsed?.surgeryId) {
+      return null;
+    }
+
+    return getSurgery(String(parsed.surgeryId));
   } catch (error) {
-    console.error('getSurgeryByQrData error:', error);
+    console.error(
+      'getSurgeryByQrData error:',
+      error
+    );
+
     return null;
   }
 };
 
-export const getSurgeriesByHospital = async (hospitalId: string): Promise<SurgeryOperation[]> => {
-  const q = query(
-    collection(db, SURGERIES_COLLECTION),
+export const getSurgeriesByHospital = async (
+  hospitalId: string
+): Promise<SurgeryOperation[]> => {
+  const surgeriesQuery = query(
+    surgeriesCollection,
     where('hospitalId', '==', hospitalId),
     orderBy('scheduledDate', 'desc')
   );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => doc.data() as SurgeryOperation);
+
+  const snapshot = await getDocs(surgeriesQuery);
+
+  return snapshot.docs.map((document) =>
+    mapSurgery(document)
+  );
 };
 
 export const updateSurgeryStatus = async (
@@ -73,109 +132,239 @@ export const updateSurgeryStatus = async (
   status: SurgeryOperation['status'],
   extraUpdates?: Partial<SurgeryOperation>
 ): Promise<void> => {
-  const docRef = doc(db, SURGERIES_COLLECTION, surgeryId);
-  const updateData: Record<string, any> = {
+  const surgeryRef = doc(
+    db,
+    SURGERIES_COLLECTION,
+    surgeryId
+  );
+
+  const updateData: Record<string, unknown> = {
     status,
     updatedAt: serverTimestamp(),
   };
 
-  if (status === 'in_surgery' && !extraUpdates?.startTime) {
+  if (
+    status === 'in_surgery' &&
+    !extraUpdates?.startTime
+  ) {
     updateData.startTime = serverTimestamp();
   }
-  if (status === 'completed' && !extraUpdates?.actualEndTime) {
+
+  if (
+    status === 'completed' &&
+    !extraUpdates?.actualEndTime
+  ) {
     updateData.actualEndTime = serverTimestamp();
   }
 
-  await updateDoc(docRef, { ...updateData, ...extraUpdates });
+  await updateDoc(surgeryRef, {
+    ...updateData,
+    ...extraUpdates,
+  });
 };
 
-export const deleteSurgery = async (surgeryId: string): Promise<void> => {
-  await deleteDoc(doc(db, SURGERIES_COLLECTION, surgeryId));
+export const deleteSurgery = async (
+  surgeryId: string
+): Promise<void> => {
+  await deleteDoc(
+    doc(db, SURGERIES_COLLECTION, surgeryId)
+  );
 };
 
-// ========== REAL-TIME SUBSCRIPTIONS ==========
+// ======================================================
+// REAL-TIME SUBSCRIPTIONS
+// ======================================================
 
-// ✅ NEW: Subscribe to a SINGLE surgery by ID (for SurgeryDetailScreen)
 export const subscribeToSurgery = (
   surgeryId: string,
-  callback: (surgery: SurgeryOperation | null) => void
-) => {
-  const docRef = doc(db, SURGERIES_COLLECTION, surgeryId);
+  callback: (
+    surgery: SurgeryOperation | null
+  ) => void,
+  onError?: (error: Error) => void
+): Unsubscribe => {
+  const surgeryRef = doc(
+    db,
+    SURGERIES_COLLECTION,
+    surgeryId
+  );
+
   return onSnapshot(
-    docRef,
-    (docSnap) => {
-      callback(docSnap.exists() ? (docSnap.data() as SurgeryOperation) : null);
+    surgeryRef,
+    (snapshot) => {
+      callback(
+        snapshot.exists()
+          ? mapSurgery(snapshot)
+          : null
+      );
     },
     (error) => {
-      console.error('subscribeToSurgery error:', error.code, error.message);
+      console.error(
+        'subscribeToSurgery error:',
+        error.code,
+        error.message
+      );
+
       callback(null);
+      onError?.(error);
     }
   );
 };
 
+// STAFF ONLY: never call this from a family screen.
 export const subscribeToSurgeries = (
-  callback: (surgeries: SurgeryOperation[]) => void
-) => {
-  const q = query(collection(db, SURGERIES_COLLECTION), orderBy('scheduledDate', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const surgeries = snapshot.docs.map(doc => doc.data() as SurgeryOperation);
-    callback(surgeries);
-  }, (error) => {
-    console.error('subscribeToSurgeries error:', error.code, error.message);
-    callback([]);
-  });
+  callback: (surgeries: SurgeryOperation[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe => {
+  const surgeriesQuery = query(
+    surgeriesCollection,
+    orderBy('scheduledDate', 'desc')
+  );
+
+  return onSnapshot(
+    surgeriesQuery,
+    (snapshot) => {
+      callback(
+        snapshot.docs.map((document) =>
+          mapSurgery(document)
+        )
+      );
+    },
+    (error) => {
+      console.error(
+        'subscribeToSurgeries error:',
+        error.code,
+        error.message
+      );
+
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
+// STAFF ONLY
 export const subscribeToSurgeriesByHospital = (
   hospitalId: string,
-  callback: (surgeries: SurgeryOperation[]) => void
-) => {
-  const q = query(
-    collection(db, SURGERIES_COLLECTION),
+  callback: (surgeries: SurgeryOperation[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe => {
+  const surgeriesQuery = query(
+    surgeriesCollection,
     where('hospitalId', '==', hospitalId),
     orderBy('scheduledDate', 'desc')
   );
-  return onSnapshot(q, (snapshot) => {
-    const surgeries = snapshot.docs.map(doc => doc.data() as SurgeryOperation);
-    callback(surgeries);
-  }, (error) => {
-    console.error('subscribeToSurgeriesByHospital error:', error.code, error.message);
-    callback([]);
-  });
+
+  return onSnapshot(
+    surgeriesQuery,
+    (snapshot) => {
+      callback(
+        snapshot.docs.map((document) =>
+          mapSurgery(document)
+        )
+      );
+    },
+    (error) => {
+      console.error(
+        'subscribeToSurgeriesByHospital error:',
+        error.code,
+        error.message
+      );
+
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
+// FAMILY ONLY
 export const subscribeToSurgeriesByFamilyPhone = (
   phoneNumber: string,
-  callback: (surgeries: SurgeryOperation[]) => void
-) => {
-  const q = query(
-    collection(db, SURGERIES_COLLECTION),
-    where('familyPhoneNumbers', 'array-contains', phoneNumber),
+  callback: (surgeries: SurgeryOperation[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe => {
+  const cleanPhoneNumber =
+    normalizePhone(phoneNumber);
+
+  if (!cleanPhoneNumber) {
+    callback([]);
+
+    return () => undefined;
+  }
+
+  const surgeriesQuery = query(
+    surgeriesCollection,
+    where(
+      'familyPhoneNumbers',
+      'array-contains',
+      cleanPhoneNumber
+    ),
     orderBy('scheduledDate', 'desc')
   );
-  return onSnapshot(q, (snapshot) => {
-    const surgeries = snapshot.docs.map(doc => doc.data() as SurgeryOperation);
-    callback(surgeries);
-  }, (error) => {
-    console.error('subscribeToSurgeriesByFamilyPhone error:', error.code, error.message);
-    callback([]);
-  });
+
+  return onSnapshot(
+    surgeriesQuery,
+    (snapshot) => {
+      callback(
+        snapshot.docs.map((document) =>
+          mapSurgery(document)
+        )
+      );
+    },
+    (error) => {
+      console.error(
+        'subscribeToSurgeriesByFamilyPhone error:',
+        error.code,
+        error.message
+      );
+
+      callback([]);
+      onError?.(error);
+    }
+  );
 };
 
+// FAMILY TOKEN ONLY
 export const subscribeToSurgeriesByFamilyToken = (
   token: string,
-  callback: (surgeries: SurgeryOperation[]) => void
-) => {
-  const q = query(
-    collection(db, SURGERIES_COLLECTION),
-    where('familyNotificationTokens', 'array-contains', token),
+  callback: (surgeries: SurgeryOperation[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe => {
+  const cleanToken = token.trim();
+
+  if (!cleanToken) {
+    callback([]);
+
+    return () => undefined;
+  }
+
+  const surgeriesQuery = query(
+    surgeriesCollection,
+    where(
+      'familyNotificationTokens',
+      'array-contains',
+      cleanToken
+    ),
     orderBy('scheduledDate', 'desc')
   );
-  return onSnapshot(q, (snapshot) => {
-    const surgeries = snapshot.docs.map(doc => doc.data() as SurgeryOperation);
-    callback(surgeries);
-  }, (error) => {
-    console.error('subscribeToSurgeriesByFamilyToken error:', error.code, error.message);
-    callback([]);
-  });
+
+  return onSnapshot(
+    surgeriesQuery,
+    (snapshot) => {
+      callback(
+        snapshot.docs.map((document) =>
+          mapSurgery(document)
+        )
+      );
+    },
+    (error) => {
+      console.error(
+        'subscribeToSurgeriesByFamilyToken error:',
+        error.code,
+        error.message
+      );
+
+      callback([]);
+      onError?.(error);
+    }
+  );
 };

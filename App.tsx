@@ -101,11 +101,17 @@ const OnboardingStack =
   createNativeStackNavigator<OnboardingStackParamList>();
 
 export default function App() {
-  const {
-    initAuth,
-    isLoading,
-    user,
-  } = useAuthStore();
+  const initAuth = useAuthStore(
+    (state) => state.initAuth
+  );
+
+  const user = useAuthStore(
+    (state) => state.user
+  );
+
+  const isLoading = useAuthStore(
+    (state) => state.isLoading
+  );
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -136,17 +142,7 @@ export default function App() {
       try {
         console.log('[App] calling initAuth');
 
-        await Promise.race([
-          initAuth(),
-          new Promise<void>((resolve) => {
-            setTimeout(() => {
-              console.warn(
-                '[App] initAuth timeout; continuing app startup'
-              );
-              resolve();
-            }, 8000);
-          }),
-        ]);
+        await initAuth();
 
         console.log('[App] initAuth finished');
 
@@ -203,22 +199,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.warn(
-        '[App] forcing native splash to hide'
-      );
-
-      void hideNativeSplash();
-    }, 8000);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [hideNativeSplash]);
-
-  useEffect(() => {
     if (
       fontsLoaded &&
+      !isLoading &&
       onboardingLoaded &&
       bootstrapFinished
     ) {
@@ -226,6 +209,7 @@ export default function App() {
     }
   }, [
     fontsLoaded,
+    isLoading,
     onboardingLoaded,
     bootstrapFinished,
     hideNativeSplash,
@@ -240,7 +224,12 @@ export default function App() {
     setOnboardingCompleted(true);
   };
 
-  if (!fontsLoaded || !bootstrapFinished) {
+  if (
+    !fontsLoaded ||
+    isLoading ||
+    !onboardingLoaded ||
+    !bootstrapFinished
+  ) {
     return (
       <View style={styles.bootContainer}>
         <ActivityIndicator
