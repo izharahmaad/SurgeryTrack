@@ -63,63 +63,41 @@ import {
   getSurgeryByQrData,
 } from '../../services/surgery';
 
-const { width } =
-  Dimensions.get('window');
+const { width } = Dimensions.get('window');
+const SCAN_SIZE = Math.min(width * 0.7, 310);
 
-const SCAN_SIZE = Math.min(
-  width * 0.7,
-  310
-);
+type RecentScan = {
+  id: string;
+  patientName?: string;
+  surgeryId: string;
+  timestamp: number;
+};
 
 export default function ScanScreen() {
-  const navigation =
-    useNavigation<any>();
+  const navigation = useNavigation<any>();
 
-  const [
-    permission,
-    requestPermission,
-  ] = useCameraPermissions();
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const [scanned, setScanned] =
-    useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const [manualModalVisible, setManualModalVisible] = useState(false);
+  const [manualCode, setManualCode] = useState('');
+  const [helpVisible, setHelpVisible] = useState(false);
+  const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
 
-  const [loading, setLoading] =
-    useState(false);
+  const isProcessing = useRef(false);
 
-  const [torchOn, setTorchOn] =
-    useState(false);
-
-  const [facing, setFacing] =
-    useState<'back' | 'front'>('back');
-
-  const [
-    manualModalVisible,
-    setManualModalVisible,
-  ] = useState(false);
-
-  const [
-    manualCode,
-    setManualCode,
-  ] = useState('');
-
-  const isProcessing =
-    useRef(false);
-
-  const scanLineY =
-    useSharedValue(0);
-
-  const successScale =
-    useSharedValue(0);
+  const scanLineY = useSharedValue(0);
+  const successScale = useSharedValue(0);
 
   useEffect(() => {
     scanLineY.value = withRepeat(
-      withTiming(
-        SCAN_SIZE - 4,
-        {
-          duration: 1800,
-          easing: Easing.linear,
-        }
-      ),
+      withTiming(SCAN_SIZE - 4, {
+        duration: 2000,
+        easing: Easing.inOut(Easing.ease),
+      }),
       -1,
       true
     );
@@ -129,30 +107,19 @@ export default function ScanScreen() {
     };
   }, [scanLineY]);
 
-  const scanLineStyle =
-    useAnimatedStyle(() => ({
-      transform: [
-        {
-          translateY: scanLineY.value,
-        },
-      ],
-    }));
+  const scanLineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: scanLineY.value }],
+  }));
 
-  const successStyle =
-    useAnimatedStyle(() => ({
-      transform: [
-        {
-          scale: successScale.value,
-        },
-      ],
-    }));
+  const successStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: successScale.value }],
+  }));
 
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-
     navigation.navigate('DashboardTab');
   }, [navigation]);
 
@@ -163,6 +130,23 @@ export default function ScanScreen() {
     successScale.value = 0;
   }, [successScale]);
 
+  const addRecentScan = useCallback((surgery: {
+    id: string;
+    patientName?: string;
+  }) => {
+    setRecentScans((prev) => {
+      const filtered = prev.filter((s) => s.surgeryId !== surgery.id);
+      const next: RecentScan = {
+        id: `${surgery.id}-${Date.now()}`,
+        patientName: surgery.patientName,
+        surgeryId: surgery.id,
+        timestamp: Date.now(),
+      };
+      const list = [next, ...filtered].slice(0, 5);
+      return list;
+    });
+  }, []);
+
   const lookupSurgery = useCallback(
     async (data: string) => {
       const cleanData = data.trim();
@@ -171,10 +155,8 @@ export default function ScanScreen() {
         Toast.show({
           type: 'error',
           text1: 'Empty QR code',
-          text2:
-            'The QR code did not contain any data.',
+          text2: 'The QR code did not contain any data.',
         });
-
         resetScanner();
         return;
       }
@@ -182,10 +164,7 @@ export default function ScanScreen() {
       setLoading(true);
 
       try {
-        const surgery =
-          await getSurgeryByQrData(
-            cleanData
-          );
+        const surgery = await getSurgeryByQrData(cleanData);
 
         if (!surgery) {
           Haptics.notificationAsync(
@@ -195,17 +174,14 @@ export default function ScanScreen() {
           Toast.show({
             type: 'error',
             text1: 'Surgery not found',
-            text2:
-              'This QR code is invalid or not assigned to you.',
+            text2: 'This QR code is invalid or not assigned to you.',
           });
 
           resetScanner();
           return;
         }
 
-        successScale.value =
-          withSpring(1);
-
+        successScale.value = withSpring(1);
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success
         );
@@ -218,19 +194,18 @@ export default function ScanScreen() {
             : 'Opening surgery details',
         });
 
+        addRecentScan({
+          id: surgery.id,
+          patientName: surgery.patientName,
+        });
+
         setTimeout(() => {
-          navigation.navigate(
-            'SurgeryDetail',
-            {
-              surgeryId: surgery.id,
-            }
-          );
-        }, 600);
+          navigation.navigate('SurgeryDetail', {
+            surgeryId: surgery.id,
+          });
+        }, 800);
       } catch (error) {
-        console.error(
-          'QR surgery lookup failed:',
-          error
-        );
+        console.error('QR surgery lookup failed:', error);
 
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Error
@@ -239,8 +214,7 @@ export default function ScanScreen() {
         Toast.show({
           type: 'error',
           text1: 'Unable to find surgery',
-          text2:
-            'You may not have permission to view this surgery.',
+          text2: 'You may not have permission to view this surgery.',
         });
 
         resetScanner();
@@ -248,44 +222,24 @@ export default function ScanScreen() {
         setLoading(false);
       }
     },
-    [
-      navigation,
-      resetScanner,
-      successScale,
-    ]
+    [navigation, resetScanner, successScale, addRecentScan]
   );
 
-  const handleBarcodeScanned =
-    useCallback(
-      async ({
-        data,
-      }: {
-        data: string;
-        type?: string;
-      }) => {
-        if (
-          isProcessing.current ||
-          loading ||
-          manualModalVisible
-        ) {
-          return;
-        }
+  const handleBarcodeScanned = useCallback(
+    async ({ data }: { data: string; type?: string }) => {
+      if (isProcessing.current || loading || manualModalVisible) {
+        return;
+      }
 
-        isProcessing.current = true;
-        setScanned(true);
+      isProcessing.current = true;
+      setScanned(true);
 
-        Haptics.impactAsync(
-          Haptics.ImpactFeedbackStyle.Medium
-        );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        await lookupSurgery(data);
-      },
-      [
-        loading,
-        lookupSurgery,
-        manualModalVisible,
-      ]
-    );
+      await lookupSurgery(data);
+    },
+    [loading, lookupSurgery, manualModalVisible]
+  );
 
   const handleRescan = useCallback(() => {
     Haptics.selectionAsync();
@@ -296,74 +250,71 @@ export default function ScanScreen() {
     if (loading) {
       return;
     }
-
     Haptics.selectionAsync();
     setManualModalVisible(true);
   }, [loading]);
 
-  const closeManualEntry =
-    useCallback(() => {
-      if (loading) {
-        return;
-      }
+  const closeManualEntry = useCallback(() => {
+    if (loading) {
+      return;
+    }
+    setManualModalVisible(false);
+    setManualCode('');
+  }, [loading]);
 
-      setManualModalVisible(false);
-      setManualCode('');
-    }, [loading]);
+  const handleManualSubmit = useCallback(async () => {
+    const cleanCode = manualCode.trim();
 
-  const handleManualSubmit =
-    useCallback(async () => {
-      const cleanCode =
-        manualCode.trim();
+    if (!cleanCode) {
+      Toast.show({
+        type: 'error',
+        text1: 'Enter a QR code value',
+      });
+      return;
+    }
 
-      if (!cleanCode) {
-        Toast.show({
-          type: 'error',
-          text1: 'Enter a QR code value',
-        });
+    Haptics.selectionAsync();
 
-        return;
-      }
+    setManualModalVisible(false);
+    setScanned(true);
+    isProcessing.current = true;
 
-      Haptics.selectionAsync();
+    await lookupSurgery(cleanCode);
 
-      setManualModalVisible(false);
-      setScanned(true);
-      isProcessing.current = true;
-
-      await lookupSurgery(cleanCode);
-
-      setManualCode('');
-    }, [lookupSurgery, manualCode]);
+    setManualCode('');
+  }, [lookupSurgery, manualCode]);
 
   const openSettings = useCallback(() => {
     Haptics.selectionAsync();
     Linking.openSettings();
   }, []);
 
+  const openRecentScan = useCallback(
+    (surgeryId: string) => {
+      if (loading) {
+        return;
+      }
+      Haptics.selectionAsync();
+      navigation.navigate('SurgeryDetail', { surgeryId });
+    },
+    [loading, navigation]
+  );
+
   if (!permission) {
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
+      <SafeAreaView style={styles.container}>
         <View style={styles.centerLoader}>
-          <ActivityIndicator
-            size="large"
-            color={COLORS.primary}
-          />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
-    const permanentlyDenied =
-      permission.canAskAgain === false;
+    const permanentlyDenied = permission.canAskAgain === false;
 
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Pressable
             onPress={handleBack}
@@ -373,29 +324,18 @@ export default function ScanScreen() {
           >
             <MaterialCommunityIcons
               name="arrow-left"
-              size={20}
+              size={22}
               color={COLORS.text}
             />
           </Pressable>
 
-          <Text style={styles.headerTitle}>
-            Scan QR Code
-          </Text>
+          <Text style={styles.headerTitle}>Scan QR Code</Text>
 
-          <View
-            style={styles.headerSpacer}
-          />
+          <View style={styles.headerSpacer} />
         </View>
 
-        <Animated.View
-          entering={FadeIn}
-          style={styles.permissionWrap}
-        >
-          <View
-            style={
-              styles.permissionIconCircle
-            }
-          >
+        <Animated.View entering={FadeIn} style={styles.permissionWrap}>
+          <View style={styles.permissionIconCircle}>
             <MaterialCommunityIcons
               name="camera-off-outline"
               size={48}
@@ -403,9 +343,7 @@ export default function ScanScreen() {
             />
           </View>
 
-          <Text style={styles.permissionTitle}>
-            Camera Access Needed
-          </Text>
+          <Text style={styles.permissionTitle}>Camera Access Needed</Text>
 
           <Text style={styles.message}>
             {permanentlyDenied
@@ -414,36 +352,20 @@ export default function ScanScreen() {
           </Text>
 
           <Pressable
-            onPress={
-              permanentlyDenied
-                ? openSettings
-                : requestPermission
-            }
+            onPress={permanentlyDenied ? openSettings : requestPermission}
             style={styles.gradientButton}
           >
             <LinearGradient
-              colors={[
-                COLORS.primary,
-                COLORS.secondary,
-              ]}
+              colors={[COLORS.primary, COLORS.secondary]}
               style={styles.gradientButtonInner}
             >
               <MaterialCommunityIcons
-                name={
-                  permanentlyDenied
-                    ? 'cog-outline'
-                    : 'camera-outline'
-                }
+                name={permanentlyDenied ? 'cog-outline' : 'camera-outline'}
                 size={18}
                 color={COLORS.surface}
               />
-
-              <Text
-                style={styles.buttonText}
-              >
-                {permanentlyDenied
-                  ? 'Open Settings'
-                  : 'Grant Permission'}
+              <Text style={styles.buttonText}>
+                {permanentlyDenied ? 'Open Settings' : 'Grant Permission'}
               </Text>
             </LinearGradient>
           </Pressable>
@@ -454,13 +376,10 @@ export default function ScanScreen() {
           >
             <MaterialCommunityIcons
               name="keyboard-outline"
-              size={16}
+              size={18}
               color={COLORS.primary}
             />
-
-            <Text
-              style={styles.manualLinkText}
-            >
+            <Text style={styles.manualLinkText}>
               Enter code manually instead
             </Text>
           </Pressable>
@@ -479,30 +398,29 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.container}
-    >
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Pressable
           onPress={handleBack}
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+          accessibilityHint="Returns to the previous screen"
         >
           <MaterialCommunityIcons
             name="arrow-left"
-            size={20}
+            size={22}
             color={COLORS.text}
           />
         </Pressable>
 
         <View style={styles.headerTextWrap}>
-          <Text style={styles.title}>
-            Scan QR Code
-          </Text>
-
+          <Text style={styles.title}>Scan QR Code</Text>
           <Text style={styles.subtitle}>
             Point the camera at the surgery QR code
+          </Text>
+          <Text style={styles.helper}>
+            Keep the QR inside the square frame
           </Text>
         </View>
 
@@ -511,153 +429,108 @@ export default function ScanScreen() {
             if (loading) {
               return;
             }
-
             Haptics.selectionAsync();
-
             setFacing((current) =>
-              current === 'back'
-                ? 'front'
-                : 'back'
+              current === 'back' ? 'front' : 'back'
             );
           }}
-          style={styles.backButton}
+          style={styles.iconButton}
           accessibilityRole="button"
           accessibilityLabel="Switch camera"
+          accessibilityHint="Switches between front and back camera"
         >
           <MaterialCommunityIcons
             name="camera-flip-outline"
-            size={20}
+            size={22}
             color={COLORS.text}
           />
         </Pressable>
       </View>
 
-      <View
-        style={styles.scannerContainer}
-      >
+      <View style={styles.scannerContainer}>
         <CameraView
           style={StyleSheet.absoluteFillObject}
           facing={facing}
           enableTorch={torchOn}
-          onBarcodeScanned={
-            scanned
-              ? undefined
-              : handleBarcodeScanned
-          }
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr'],
-          }}
+          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         />
 
-        <View
-          pointerEvents="none"
-          style={styles.dimOverlay}
-        />
+        <View pointerEvents="none" style={styles.dimOverlay} />
 
-        <View
-          pointerEvents="none"
-          style={styles.scanArea}
-        >
+        <View pointerEvents="none" style={styles.scanArea}>
           {!scanned && !loading && (
             <Animated.View
-              style={[
-                styles.scanLine,
-                scanLineStyle,
-              ]}
+              style={[styles.scanLine, scanLineStyle]}
             />
           )}
 
           {scanned && !loading && (
             <Animated.View
-              style={[
-                styles.successCheck,
-                successStyle,
-              ]}
+              entering={FadeIn}
+              style={[styles.successOverlay, successStyle]}
             >
               <MaterialCommunityIcons
                 name="check-circle"
                 size={56}
                 color={COLORS.success}
               />
+              <Text style={styles.successText}>Surgery found</Text>
+              <Text style={styles.successSubtext}>Opening details…</Text>
             </Animated.View>
           )}
         </View>
 
-        <View
-          pointerEvents="none"
-          style={[
-            styles.corner,
-            styles.cornerTopLeft,
-          ]}
-        />
+        {/* Corners */}
+        <View pointerEvents="none" style={[styles.corner, styles.cornerTopLeft]} />
+        <View pointerEvents="none" style={[styles.corner, styles.cornerTopRight]} />
+        <View pointerEvents="none" style={[styles.corner, styles.cornerBottomLeft]} />
+        <View pointerEvents="none" style={[styles.corner, styles.cornerBottomRight]} />
 
-        <View
-          pointerEvents="none"
-          style={[
-            styles.corner,
-            styles.cornerTopRight,
-          ]}
-        />
-
-        <View
-          pointerEvents="none"
-          style={[
-            styles.corner,
-            styles.cornerBottomLeft,
-          ]}
-        />
-
-        <View
-          pointerEvents="none"
-          style={[
-            styles.corner,
-            styles.cornerBottomRight,
-          ]}
-        />
-
+        {/* Torch */}
         <Pressable
           style={styles.torchButton}
           onPress={() => {
             if (loading) {
               return;
             }
-
             Haptics.selectionAsync();
             setTorchOn((current) => !current);
           }}
           accessibilityRole="button"
-          accessibilityLabel={
-            torchOn
-              ? 'Turn flashlight off'
-              : 'Turn flashlight on'
-          }
+          accessibilityLabel={torchOn ? 'Turn flashlight off' : 'Turn flashlight on'}
+          accessibilityHint="Toggles the camera flashlight"
         >
           <MaterialCommunityIcons
-            name={
-              torchOn
-                ? 'flashlight'
-                : 'flashlight-off'
-            }
+            name={torchOn ? 'flashlight' : 'flashlight-off'}
+            size={22}
+            color={COLORS.surface}
+          />
+        </Pressable>
+
+        {/* Help button */}
+        <Pressable
+          style={[styles.torchButton, { top: 16, right: 72 }]}
+          onPress={() => {
+            if (loading) return;
+            Haptics.selectionAsync();
+            setHelpVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="How to scan"
+          accessibilityHint="Shows instructions for scanning QR codes"
+        >
+          <MaterialCommunityIcons
+            name="help-circle-outline"
             size={22}
             color={COLORS.surface}
           />
         </Pressable>
 
         {loading && (
-          <Animated.View
-            entering={FadeIn}
-            style={styles.loadingOverlay}
-          >
-            <ActivityIndicator
-              size="large"
-              color={COLORS.surface}
-            />
-
-            <Text
-              style={styles.loadingText}
-            >
-              Finding surgery...
-            </Text>
+          <Animated.View entering={FadeIn} style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={COLORS.surface} />
+            <Text style={styles.loadingText}>Finding surgery…</Text>
           </Animated.View>
         )}
       </View>
@@ -668,31 +541,20 @@ export default function ScanScreen() {
       >
         <MaterialCommunityIcons
           name="keyboard-outline"
-          size={16}
+          size={18}
           color={COLORS.primary}
         />
-
-        <Text
-          style={styles.manualLinkText}
-        >
-          Enter code manually
-        </Text>
+        <Text style={styles.manualLinkText}>Enter code manually</Text>
       </Pressable>
 
       {scanned && !loading && (
-        <Animated.View
-          entering={FadeInDown}
-          exiting={FadeOutDown}
-        >
+        <Animated.View entering={FadeInDown} exiting={FadeOutDown}>
           <Pressable
             onPress={handleRescan}
             style={styles.rescanButton}
           >
             <LinearGradient
-              colors={[
-                COLORS.primary,
-                COLORS.secondary,
-              ]}
+              colors={[COLORS.primary, COLORS.secondary]}
               style={styles.rescanButtonInner}
             >
               <MaterialCommunityIcons
@@ -700,15 +562,50 @@ export default function ScanScreen() {
                 size={18}
                 color={COLORS.surface}
               />
-
-              <Text
-                style={styles.rescanText}
-              >
-                Scan Again
-              </Text>
+              <Text style={styles.rescanText}>Scan Again</Text>
             </LinearGradient>
           </Pressable>
         </Animated.View>
+      )}
+
+      {/* Recent scans */}
+      {recentScans.length > 0 && !loading && (
+        <View style={styles.recentWrap}>
+          <Text style={styles.recentTitle}>Recent scans</Text>
+          <View style={styles.recentList}>
+            {recentScans.map((s) => (
+              <Pressable
+                key={s.id}
+                onPress={() => openRecentScan(s.surgeryId)}
+                style={styles.recentItem}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${s.patientName ?? 'surgery'}`}
+              >
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
+                <View style={styles.recentTextWrap}>
+                  <Text style={styles.recentText}>
+                    {s.patientName ?? 'Surgery'}
+                  </Text>
+                  <Text style={styles.recentSubtext}>
+                    {new Date(s.timestamp).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={COLORS.textMuted}
+                />
+              </Pressable>
+            ))}
+          </View>
+        </View>
       )}
 
       <ManualEntryModal
@@ -719,6 +616,65 @@ export default function ScanScreen() {
         onClose={closeManualEntry}
         onSubmit={handleManualSubmit}
       />
+
+      {/* Help modal */}
+      <Modal visible={helpVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.helpCard}>
+            <View style={styles.helpHeader}>
+              <Text style={styles.helpTitle}>How to scan</Text>
+              <Pressable
+                onPress={() => setHelpVisible(false)}
+                style={styles.closeButton}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={20}
+                  color={COLORS.textMuted}
+                />
+              </Pressable>
+            </View>
+
+            <View style={styles.helpStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>1</Text>
+              </View>
+              <Text style={styles.stepText}>
+                Hold your phone steady and point the camera at the surgery QR code.
+              </Text>
+            </View>
+
+            <View style={styles.helpStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>2</Text>
+              </View>
+              <Text style={styles.stepText}>
+                Keep the QR code inside the square frame on the screen.
+              </Text>
+            </View>
+
+            <View style={styles.helpStep}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>3</Text>
+              </View>
+              <Text style={styles.stepText}>
+                Wait for the beep and checkmark. The app will open your surgery details.
+              </Text>
+            </View>
+
+            <View style={styles.helpNote}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={18}
+                color={COLORS.primary}
+              />
+              <Text style={styles.helpNoteText}>
+                Only surgeries linked to your phone number can be opened.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -769,20 +725,15 @@ function ManualEntryModal({
             </Pressable>
           </View>
 
-          <Text style={styles.modalTitle}>
-            Enter QR Code Manually
-          </Text>
-
+          <Text style={styles.modalTitle}>Enter surgery QR code</Text>
           <Text style={styles.modalSubtitle}>
-            Paste or type the surgery QR data.
+            Paste the full QR text you copied from your hospital.
           </Text>
 
           <TextInput
             style={styles.modalInput}
             placeholder="Paste QR code data..."
-            placeholderTextColor={
-              COLORS.textMuted
-            }
+            placeholderTextColor={COLORS.textMuted}
             value={value}
             onChangeText={onChangeText}
             multiline
@@ -792,45 +743,28 @@ function ManualEntryModal({
             maxLength={2000}
           />
 
-          <View
-            style={styles.modalActions}
-          >
+          <Text style={styles.modalHint}>
+            We'll only open surgeries linked to your phone number.
+          </Text>
+
+          <View style={styles.modalActions}>
             <Pressable
               onPress={onClose}
               disabled={loading}
-              style={[
-                styles.modalCancelButton,
-                loading &&
-                  styles.disabledButton,
-              ]}
+              style={[styles.modalCancelButton, loading && styles.disabledButton]}
             >
-              <Text
-                style={styles.modalCancelText}
-              >
-                Cancel
-              </Text>
+              <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
 
             <Pressable
               onPress={onSubmit}
               disabled={loading}
-              style={[
-                styles.modalSubmitButton,
-                loading &&
-                  styles.disabledButton,
-              ]}
+              style={[styles.modalSubmitButton, loading && styles.disabledButton]}
             >
               {loading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={COLORS.surface}
-                />
+                <ActivityIndicator size="small" color={COLORS.surface} />
               ) : (
-                <Text
-                  style={styles.modalSubmitText}
-                >
-                  Look Up
-                </Text>
+                <Text style={styles.modalSubmitText}>Look up surgery</Text>
               )}
             </Pressable>
           </View>
@@ -856,18 +790,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
   },
 
   headerSpacer: {
-    width: 40,
+    width: 48,
   },
 
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  iconButton: {
+    width: 48,
+    height: 48,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -897,16 +842,26 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 2,
-    fontSize: 12.5,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+
+  helper: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
 
   scannerContainer: {
     position: 'relative',
     flex: 1,
-    margin: 24,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 12,
     overflow: 'hidden',
     borderRadius: 24,
     backgroundColor: '#000',
@@ -914,8 +869,7 @@ const styles = StyleSheet.create({
 
   dimOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor:
-      'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
 
   scanArea: {
@@ -944,9 +898,26 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
 
-  successCheck: {
+  successOverlay: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 16,
+    padding: 16,
+  },
+
+  successText: {
+    marginTop: 8,
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.surface,
+  },
+
+  successSubtext: {
+    marginTop: 2,
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.surface,
   },
 
   corner: {
@@ -993,8 +964,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor:
-      'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
 
   loadingOverlay: {
@@ -1002,8 +972,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor:
-      'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
 
   loadingText: {
@@ -1028,7 +997,7 @@ const styles = StyleSheet.create({
   },
 
   manualLinkText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
@@ -1108,13 +1077,56 @@ const styles = StyleSheet.create({
     color: COLORS.surface,
   },
 
+  recentWrap: {
+    marginHorizontal: 24,
+    marginBottom: 16,
+  },
+
+  recentTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+    marginBottom: 8,
+  },
+
+  recentList: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  recentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+
+  recentTextWrap: {
+    flex: 1,
+  },
+
+  recentText: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+
+  recentSubtext: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+
   modalOverlay: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor:
-      'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
 
   modalCard: {
@@ -1164,7 +1176,7 @@ const styles = StyleSheet.create({
   },
 
   modalInput: {
-    minHeight: 90,
+    minHeight: 120,
     padding: 14,
     borderRadius: 14,
     backgroundColor: COLORS.background,
@@ -1173,6 +1185,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONTS.regular,
     color: COLORS.text,
+  },
+
+  modalHint: {
+    marginTop: 8,
+    marginBottom: 10,
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
   },
 
   modalActions: {
@@ -1215,5 +1235,73 @@ const styles = StyleSheet.create({
 
   disabledButton: {
     opacity: 0.55,
+  },
+
+  helpCard: {
+    width: '100%',
+    padding: 24,
+    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+  },
+
+  helpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+
+  helpTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+
+  helpStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryLight,
+  },
+
+  stepNumberText: {
+    fontSize: 13,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+  },
+
+  stepText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+
+  helpNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryLight,
+  },
+
+  helpNoteText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
   },
 });
