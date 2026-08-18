@@ -33,13 +33,13 @@ export default function AboutScreen() {
           <View style={styles.headerActionPlaceholder} />
         </View>
 
-        {/* App info card */}
+        {/* App info card with vector heart logo */}
         <View style={styles.card}>
           <View style={styles.logoWrap}>
             <View style={styles.logoCircle}>
               <MaterialCommunityIcons
-                name="hospital-box"
-                size={32}
+                name="heart"
+                size={40}
                 color={COLORS.primary}
               />
             </View>
@@ -106,8 +106,12 @@ export default function AboutScreen() {
 function FeatureRow({ icon, text }: { icon: string; text: string }) {
   return (
     <View style={styles.featureRow}>
-      <View style={styles.featureIcon}>
-        <MaterialCommunityIcons name={icon as any} size={18} color={COLORS.primary} />
+      <View style={styles.featureIconCircle}>
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={18}
+          color={COLORS.primary}
+        />
       </View>
       <Text style={styles.featureText}>{text}</Text>
     </View>
@@ -168,9 +172,9 @@ const styles = StyleSheet.create({
   },
 
   logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -232,18 +236,18 @@ const styles = StyleSheet.create({
 
   featureRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
   },
 
-  featureIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  featureIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
 
   featureText: {

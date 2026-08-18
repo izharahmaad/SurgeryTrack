@@ -17,29 +17,12 @@ import {
   View,
 } from 'react-native';
 
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
-
-import {
-  useNavigation,
-} from '@react-navigation/native';
-
-import {
-  MaterialCommunityIcons,
-} from '@expo/vector-icons';
-
-import {
-  CameraView,
-  useCameraPermissions,
-} from 'expo-camera';
-
-import {
-  LinearGradient,
-} from 'expo-linear-gradient';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-
 import Animated, {
   Easing,
   FadeIn,
@@ -54,14 +37,8 @@ import Animated, {
 
 import Toast from 'react-native-toast-message';
 
-import {
-  COLORS,
-  FONTS,
-} from '../../constants';
-
-import {
-  getSurgeryByQrData,
-} from '../../services/surgery';
+import { COLORS, FONTS } from '../../constants';
+import { getSurgeryByQrData } from '../../services/surgery';
 
 const { width } = Dimensions.get('window');
 const SCAN_SIZE = Math.min(width * 0.7, 310);
@@ -247,17 +224,13 @@ export default function ScanScreen() {
   }, [resetScanner]);
 
   const openManualEntry = useCallback(() => {
-    if (loading) {
-      return;
-    }
+    if (loading) return;
     Haptics.selectionAsync();
     setManualModalVisible(true);
   }, [loading]);
 
   const closeManualEntry = useCallback(() => {
-    if (loading) {
-      return;
-    }
+    if (loading) return;
     setManualModalVisible(false);
     setManualCode('');
   }, [loading]);
@@ -291,14 +264,14 @@ export default function ScanScreen() {
 
   const openRecentScan = useCallback(
     (surgeryId: string) => {
-      if (loading) {
-        return;
-      }
+      if (loading) return;
       Haptics.selectionAsync();
       navigation.navigate('SurgeryDetail', { surgeryId });
     },
     [loading, navigation]
   );
+
+  // ---------- Permission states ----------
 
   if (!permission) {
     return (
@@ -324,7 +297,7 @@ export default function ScanScreen() {
           >
             <MaterialCommunityIcons
               name="arrow-left"
-              size={22}
+              size={20}
               color={COLORS.text}
             />
           </Pressable>
@@ -338,7 +311,7 @@ export default function ScanScreen() {
           <View style={styles.permissionIconCircle}>
             <MaterialCommunityIcons
               name="camera-off-outline"
-              size={48}
+              size={44}
               color={COLORS.primary}
             />
           </View>
@@ -397,8 +370,11 @@ export default function ScanScreen() {
     );
   }
 
+  // ---------- Main scanner UI ----------
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Pressable
           onPress={handleBack}
@@ -409,7 +385,7 @@ export default function ScanScreen() {
         >
           <MaterialCommunityIcons
             name="arrow-left"
-            size={22}
+            size={20}
             color={COLORS.text}
           />
         </Pressable>
@@ -426,9 +402,7 @@ export default function ScanScreen() {
 
         <Pressable
           onPress={() => {
-            if (loading) {
-              return;
-            }
+            if (loading) return;
             Haptics.selectionAsync();
             setFacing((current) =>
               current === 'back' ? 'front' : 'back'
@@ -441,12 +415,13 @@ export default function ScanScreen() {
         >
           <MaterialCommunityIcons
             name="camera-flip-outline"
-            size={22}
+            size={20}
             color={COLORS.text}
           />
         </Pressable>
       </View>
 
+      {/* Scanner area */}
       <View style={styles.scannerContainer}>
         <CameraView
           style={StyleSheet.absoluteFillObject}
@@ -472,7 +447,7 @@ export default function ScanScreen() {
             >
               <MaterialCommunityIcons
                 name="check-circle"
-                size={56}
+                size={52}
                 color={COLORS.success}
               />
               <Text style={styles.successText}>Surgery found</Text>
@@ -491,9 +466,7 @@ export default function ScanScreen() {
         <Pressable
           style={styles.torchButton}
           onPress={() => {
-            if (loading) {
-              return;
-            }
+            if (loading) return;
             Haptics.selectionAsync();
             setTorchOn((current) => !current);
           }}
@@ -503,14 +476,14 @@ export default function ScanScreen() {
         >
           <MaterialCommunityIcons
             name={torchOn ? 'flashlight' : 'flashlight-off'}
-            size={22}
+            size={20}
             color={COLORS.surface}
           />
         </Pressable>
 
         {/* Help button */}
         <Pressable
-          style={[styles.torchButton, { top: 16, right: 72 }]}
+          style={[styles.torchButton, { top: 16, right: 66 }]}
           onPress={() => {
             if (loading) return;
             Haptics.selectionAsync();
@@ -522,7 +495,7 @@ export default function ScanScreen() {
         >
           <MaterialCommunityIcons
             name="help-circle-outline"
-            size={22}
+            size={20}
             color={COLORS.surface}
           />
         </Pressable>
@@ -535,78 +508,91 @@ export default function ScanScreen() {
         )}
       </View>
 
-      <Pressable
-        onPress={openManualEntry}
-        style={styles.manualLinkCentered}
-      >
-        <MaterialCommunityIcons
-          name="keyboard-outline"
-          size={18}
-          color={COLORS.primary}
-        />
-        <Text style={styles.manualLinkText}>Enter code manually</Text>
-      </Pressable>
+      {/* FOOTER AREA: manual link, recent scans, rescan button */}
+      {/* This entire block below is your “footer” to redesign */}
 
-      {scanned && !loading && (
-        <Animated.View entering={FadeInDown} exiting={FadeOutDown}>
-          <Pressable
-            onPress={handleRescan}
-            style={styles.rescanButton}
-          >
-            <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
-              style={styles.rescanButtonInner}
+      <View style={styles.footer}>
+        {/* Manual entry link */}
+        <Pressable
+          onPress={openManualEntry}
+          style={styles.manualLinkCentered}
+        >
+          <MaterialCommunityIcons
+            name="keyboard-outline"
+            size={16}
+            color={COLORS.primary}
+          />
+          <Text style={styles.manualLinkText}>
+            Enter code manually
+          </Text>
+        </Pressable>
+
+        {/* Rescan button */}
+        {scanned && !loading && (
+          <Animated.View entering={FadeInDown} exiting={FadeOutDown}>
+            <Pressable
+              onPress={handleRescan}
+              style={styles.rescanButton}
             >
-              <MaterialCommunityIcons
-                name="qrcode-scan"
-                size={18}
-                color={COLORS.surface}
-              />
-              <Text style={styles.rescanText}>Scan Again</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-      )}
-
-      {/* Recent scans */}
-      {recentScans.length > 0 && !loading && (
-        <View style={styles.recentWrap}>
-          <Text style={styles.recentTitle}>Recent scans</Text>
-          <View style={styles.recentList}>
-            {recentScans.map((s) => (
-              <Pressable
-                key={s.id}
-                onPress={() => openRecentScan(s.surgeryId)}
-                style={styles.recentItem}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${s.patientName ?? 'surgery'}`}
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.secondary]}
+                style={styles.rescanButtonInner}
               >
                 <MaterialCommunityIcons
-                  name="file-document-outline"
+                  name="qrcode-scan"
                   size={18}
-                  color={COLORS.primary}
+                  color={COLORS.surface}
                 />
-                <View style={styles.recentTextWrap}>
-                  <Text style={styles.recentText}>
-                    {s.patientName ?? 'Surgery'}
-                  </Text>
-                  <Text style={styles.recentSubtext}>
-                    {new Date(s.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={COLORS.textMuted}
-                />
-              </Pressable>
-            ))}
+                <Text style={styles.rescanText}>Scan Again</Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Recent scans */}
+        {recentScans.length > 0 && !loading && (
+          <View style={styles.recentWrap}>
+            <Text style={styles.recentTitle}>Recent scans</Text>
+            <View style={styles.recentList}>
+              {recentScans.map((s) => (
+                <Pressable
+                  key={s.id}
+                  onPress={() => openRecentScan(s.surgeryId)}
+                  style={styles.recentItem}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${s.patientName ?? 'surgery'}`}
+                >
+                  <View style={styles.recentIconCircle}>
+                    <MaterialCommunityIcons
+                      name="file-document-outline"
+                      size={16}
+                      color={COLORS.primary}
+                    />
+                  </View>
+
+                  <View style={styles.recentTextWrap}>
+                    <Text style={styles.recentText}>
+                      {s.patientName ?? 'Surgery'}
+                    </Text>
+                    <Text style={styles.recentSubtext}>
+                      {new Date(s.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={18}
+                    color={COLORS.textMuted}
+                  />
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       <ManualEntryModal
         visible={manualModalVisible}
@@ -629,7 +615,7 @@ export default function ScanScreen() {
               >
                 <MaterialCommunityIcons
                   name="close"
-                  size={20}
+                  size={18}
                   color={COLORS.textMuted}
                 />
               </Pressable>
@@ -665,7 +651,7 @@ export default function ScanScreen() {
             <View style={styles.helpNote}>
               <MaterialCommunityIcons
                 name="information-outline"
-                size={18}
+                size={16}
                 color={COLORS.primary}
               />
               <Text style={styles.helpNoteText}>
@@ -678,6 +664,8 @@ export default function ScanScreen() {
     </SafeAreaView>
   );
 }
+
+// ---------- Manual Entry Modal ----------
 
 function ManualEntryModal({
   visible,
@@ -707,7 +695,7 @@ function ManualEntryModal({
             <View style={styles.modalIcon}>
               <MaterialCommunityIcons
                 name="qrcode-scan"
-                size={22}
+                size={20}
                 color={COLORS.primary}
               />
             </View>
@@ -719,7 +707,7 @@ function ManualEntryModal({
             >
               <MaterialCommunityIcons
                 name="close"
-                size={20}
+                size={18}
                 color={COLORS.textMuted}
               />
             </Pressable>
@@ -774,6 +762,8 @@ function ManualEntryModal({
   );
 }
 
+// ---------- Styles ----------
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -786,6 +776,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -796,27 +787,27 @@ const styles = StyleSheet.create({
   },
 
   headerSpacer: {
-    width: 48,
+    width: 34,
   },
 
   backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
 
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -834,7 +825,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     textAlign: 'center',
@@ -842,7 +833,7 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
     textAlign: 'center',
@@ -850,12 +841,13 @@ const styles = StyleSheet.create({
 
   helper: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
     textAlign: 'center',
   },
 
+  // Scanner
   scannerContainer: {
     position: 'relative',
     flex: 1,
@@ -908,14 +900,14 @@ const styles = StyleSheet.create({
 
   successText: {
     marginTop: 8,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONTS.bold,
     color: COLORS.surface,
   },
 
   successSubtext: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.surface,
   },
@@ -959,9 +951,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     right: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -976,9 +968,15 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FONTS.bold,
     color: COLORS.surface,
+  },
+
+  // Footer area (manual + recent + rescan)
+  footer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 
   manualLinkCentered: {
@@ -989,101 +987,38 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  manualLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-    gap: 6,
-  },
-
   manualLinkText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
 
   rescanButton: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 32,
+    marginBottom: 14,
+    borderRadius: 999,
   },
 
   rescanButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    paddingVertical: 12,
     gap: 8,
-    borderRadius: 32,
+    borderRadius: 999,
   },
 
   rescanText: {
-    fontSize: 16,
-    fontFamily: FONTS.bold,
-    color: COLORS.surface,
-  },
-
-  permissionWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-
-  permissionIconCircle: {
-    width: 96,
-    height: 96,
-    marginBottom: 8,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primaryLight,
-  },
-
-  permissionTitle: {
-    fontSize: 20,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    textAlign: 'center',
-  },
-
-  message: {
-    marginBottom: 16,
-    fontSize: 15,
-    lineHeight: 22,
-    fontFamily: FONTS.regular,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-
-  gradientButton: {
-    borderRadius: 32,
-  },
-
-  gradientButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    gap: 8,
-    borderRadius: 32,
-  },
-
-  buttonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: FONTS.bold,
     color: COLORS.surface,
   },
 
   recentWrap: {
-    marginHorizontal: 24,
-    marginBottom: 16,
+    marginTop: 8,
   },
 
   recentTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
     marginBottom: 8,
@@ -1099,9 +1034,18 @@ const styles = StyleSheet.create({
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+
+  recentIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   recentTextWrap: {
@@ -1109,18 +1053,81 @@ const styles = StyleSheet.create({
   },
 
   recentText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.text,
   },
 
   recentSubtext: {
-    marginTop: 2,
-    fontSize: 12,
+    marginTop: 1,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
 
+  // Permission screen
+  permissionWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+
+  permissionIconCircle: {
+    width: 80,
+    height: 80,
+    marginBottom: 8,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryLight,
+  },
+
+  permissionTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+
+  message: {
+    marginBottom: 16,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+
+  gradientButton: {
+    borderRadius: 999,
+  },
+
+  gradientButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    gap: 8,
+    borderRadius: 999,
+  },
+
+  buttonText: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.surface,
+  },
+
+  manualLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 6,
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
     alignItems: 'center',
@@ -1131,8 +1138,8 @@ const styles = StyleSheet.create({
 
   modalCard: {
     width: '100%',
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 20,
     backgroundColor: COLORS.surface,
   },
 
@@ -1140,80 +1147,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
 
   modalIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primaryLight,
   },
 
   closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.background,
   },
 
   modalTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
 
   modalSubtitle: {
     marginTop: 4,
-    marginBottom: 16,
-    fontSize: 13,
+    marginBottom: 12,
+    fontSize: 12,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
 
   modalInput: {
-    minHeight: 120,
-    padding: 14,
-    borderRadius: 14,
+    minHeight: 100,
+    padding: 12,
+    borderRadius: 12,
     backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
 
   modalHint: {
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 10,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
 
   modalActions: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 10,
+    marginTop: 12,
+    gap: 8,
   },
 
   modalCancelButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
 
   modalCancelText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.textSecondary,
   },
@@ -1222,13 +1229,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     backgroundColor: COLORS.primary,
   },
 
   modalSubmitText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.surface,
   },
@@ -1237,10 +1244,11 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 
+  // Help modal
   helpCard: {
     width: '100%',
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 20,
     backgroundColor: COLORS.surface,
   },
 
@@ -1248,11 +1256,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
 
   helpTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
@@ -1260,29 +1268,29 @@ const styles = StyleSheet.create({
   helpStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 14,
+    gap: 10,
+    marginBottom: 12,
   },
 
   stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primaryLight,
   },
 
   stepNumberText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.bold,
     color: COLORS.primary,
   },
 
   stepText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
@@ -1291,16 +1299,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
     backgroundColor: COLORS.primaryLight,
   },
 
   helpNoteText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.text,
   },
