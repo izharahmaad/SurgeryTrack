@@ -22,6 +22,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeInDown,
+  FadeOutUp,
 } from 'react-native-reanimated';
 
 import { COLORS, FONTS } from '../../constants';
@@ -36,7 +37,7 @@ import {
 
 import { useAuthStore } from '../../hooks/useAuthStore';
 
-type FilterType = 'all' | 'unread';
+type FilterType = 'all' | 'unread' | 'important';
 
 type NotificationSection = {
   title: string;
@@ -57,43 +58,21 @@ function toSafeDate(value: any): Date {
   }
 
   const date = new Date(value);
-
-  return Number.isNaN(date.getTime())
-    ? new Date()
-    : date;
+  return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 function formatRelativeTime(value: any): string {
   const created = toSafeDate(value).getTime();
   const difference = Date.now() - created;
 
-  const minutes = Math.floor(
-    difference / (1000 * 60)
-  );
+  const minutes = Math.floor(difference / (1000 * 60));
+  const hours = Math.floor(difference / (1000 * 60 * 60));
+  const days = Math.floor(difference / (1000 * 60 * 60 * 24));
 
-  const hours = Math.floor(
-    difference / (1000 * 60 * 60)
-  );
-
-  const days = Math.floor(
-    difference / (1000 * 60 * 60 * 24)
-  );
-
-  if (minutes < 1) {
-    return 'Just now';
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  if (days < 7) {
-    return `${days}d ago`;
-  }
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
 
   return toSafeDate(value).toLocaleDateString();
 }
@@ -101,7 +80,6 @@ function formatRelativeTime(value: any): string {
 function isToday(value: any): boolean {
   const date = toSafeDate(value);
   const today = new Date();
-
   return (
     date.getFullYear() === today.getFullYear() &&
     date.getMonth() === today.getMonth() &&
@@ -113,13 +91,10 @@ function getIcon(type?: string): string {
   switch (type) {
     case 'status_update':
       return 'heart-pulse';
-
     case 'reminder':
       return 'clock-alert';
-
     case 'emergency':
       return 'alert-decagram';
-
     default:
       return 'information-outline';
   }
@@ -129,13 +104,10 @@ function getIconColor(type?: string): string {
   switch (type) {
     case 'status_update':
       return COLORS.success;
-
     case 'reminder':
       return COLORS.warning;
-
     case 'emergency':
       return COLORS.error;
-
     default:
       return COLORS.info;
   }
@@ -145,16 +117,17 @@ function getTypeLabel(type?: string): string {
   switch (type) {
     case 'status_update':
       return 'Status';
-
     case 'reminder':
       return 'Reminder';
-
     case 'emergency':
       return 'Emergency';
-
     default:
       return 'System';
   }
+}
+
+function isImportant(item: Notification): boolean {
+  return item.type === 'emergency' || item.type === 'status_update';
 }
 
 export default function NotificationsScreen() {
@@ -183,8 +156,7 @@ export default function NotificationsScreen() {
       (data: Notification[]) => {
         if (!firstLoad.current) {
           const newNotifications = data.filter(
-            (item) =>
-              !previousIds.current.has(item.id)
+            (item) => !previousIds.current.has(item.id)
           );
 
           if (newNotifications.length > 0) {
@@ -202,21 +174,14 @@ export default function NotificationsScreen() {
           }
         }
 
-        previousIds.current = new Set(
-          data.map((item) => item.id)
-        );
-
+        previousIds.current = new Set(data.map((item) => item.id));
         firstLoad.current = false;
 
         setItems(data);
         setLoading(false);
       },
       (error: Error) => {
-        console.error(
-          'Notification subscription error:',
-          error
-        );
-
+        console.error('Notification subscription error:', error);
         setLoading(false);
       }
     );
@@ -226,15 +191,18 @@ export default function NotificationsScreen() {
     };
   }, [user?.uid]);
 
-  const unreadCount = useMemo(() => {
-    return items.filter((item) => !item.read).length;
-  }, [items]);
+  const unreadCount = useMemo(
+    () => items.filter((item) => !item.read).length,
+    [items]
+  );
 
   const filteredItems = useMemo(() => {
     if (filter === 'unread') {
       return items.filter((item) => !item.read);
     }
-
+    if (filter === 'important') {
+      return items.filter(isImportant);
+    }
     return items;
   }, [items, filter]);
 
@@ -242,46 +210,31 @@ export default function NotificationsScreen() {
     const today = filteredItems.filter((item) =>
       isToday(item.createdAt)
     );
-
     const earlier = filteredItems.filter(
       (item) => !isToday(item.createdAt)
     );
 
     const result: NotificationSection[] = [];
-
     if (today.length > 0) {
-      result.push({
-        title: 'Today',
-        data: today,
-      });
+      result.push({ title: 'Today', data: today });
     }
-
     if (earlier.length > 0) {
-      result.push({
-        title: 'Earlier',
-        data: earlier,
-      });
+      result.push({ title: 'Earlier', data: earlier });
     }
-
     return result;
   }, [filteredItems]);
 
   const handleMarkRead = async (id: string) => {
     setItems((current) =>
       current.map((item) =>
-        item.id === id
-          ? { ...item, read: true }
-          : item
+        item.id === id ? { ...item, read: true } : item
       )
     );
 
     try {
       await markNotificationRead(id);
     } catch (error) {
-      console.error(
-        'Failed to mark notification read:',
-        error
-      );
+      console.error('Failed to mark notification read:', error);
     }
   };
 
@@ -290,26 +243,18 @@ export default function NotificationsScreen() {
       .filter((item) => !item.read)
       .map((item) => item.id);
 
-    if (unreadIds.length === 0) {
-      return;
-    }
+    if (unreadIds.length === 0) return;
 
     Haptics.selectionAsync();
 
     setItems((current) =>
-      current.map((item) => ({
-        ...item,
-        read: true,
-      }))
+      current.map((item) => ({ ...item, read: true }))
     );
 
     try {
       await markAllNotificationsRead(unreadIds);
     } catch (error) {
-      console.error(
-        'Failed to mark all notifications read:',
-        error
-      );
+      console.error('Failed to mark all notifications read:', error);
     }
   };
 
@@ -318,28 +263,20 @@ export default function NotificationsScreen() {
       'Delete Notification',
       'Remove this notification permanently?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             setItems((current) =>
               current.filter(
-                (notification) =>
-                  notification.id !== item.id
+                (notification) => notification.id !== item.id
               )
             );
-
             try {
               await deleteNotification(item.id);
             } catch (error) {
-              console.error(
-                'Failed to delete notification:',
-                error
-              );
+              console.error('Failed to delete notification:', error);
             }
           },
         },
@@ -347,9 +284,7 @@ export default function NotificationsScreen() {
     );
   };
 
-  const handleNotificationPress = async (
-    item: Notification
-  ) => {
+  const handleNotificationPress = async (item: Notification) => {
     Haptics.selectionAsync();
 
     if (!item.read) {
@@ -365,7 +300,6 @@ export default function NotificationsScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-
     setTimeout(() => {
       setRefreshing(false);
     }, 700);
@@ -387,72 +321,54 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle}>
-              Notifications
-            </Text>
-
+            <Text style={styles.headerTitle}>Notifications</Text>
             <Text style={styles.headerSubtitle}>
-              Live updates from Firestore
+              Real-time updates from your hospital
             </Text>
           </View>
 
           {unreadCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount}
-              </Text>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.actionRow}>
           <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                filter === 'all' &&
-                  styles.activeFilterButton,
-              ]}
-              onPress={() => setFilter('all')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === 'all' &&
-                    styles.activeFilterText,
-                ]}
-              >
-                All
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                filter === 'unread' &&
-                  styles.activeFilterButton,
-              ]}
-              onPress={() => setFilter('unread')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === 'unread' &&
-                    styles.activeFilterText,
-                ]}
-              >
-                Unread
-              </Text>
-            </TouchableOpacity>
+            {(['all', 'unread', 'important'] as FilterType[]).map(
+              (f) => {
+                const active = filter === f;
+                return (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      styles.filterButton,
+                      active && styles.activeFilterButton,
+                    ]}
+                    onPress={() => setFilter(f)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        active && styles.activeFilterText,
+                      ]}
+                    >
+                      {f === 'all'
+                        ? 'All'
+                        : f === 'unread'
+                        ? 'Unread'
+                        : 'Important'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+            )}
           </View>
 
           {unreadCount > 0 && (
-            <TouchableOpacity
-              onPress={handleMarkAllRead}
-            >
-              <Text style={styles.markAllText}>
-                Mark all read
-              </Text>
+            <TouchableOpacity onPress={handleMarkAllRead}>
+              <Text style={styles.markAllText}>Mark all read</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -465,18 +381,16 @@ export default function NotificationsScreen() {
       <View style={styles.emptyContainer}>
         <MaterialCommunityIcons
           name="bell-check-outline"
-          size={42}
+          size={48}
           color={COLORS.primary}
         />
-
-        <Text style={styles.emptyTitle}>
-          All caught up
-        </Text>
-
+        <Text style={styles.emptyTitle}>All caught up</Text>
         <Text style={styles.emptyText}>
-          You have no{' '}
-          {filter === 'unread' ? 'unread ' : ''}
-          notifications right now.
+          {filter === 'unread'
+            ? 'No unread notifications at the moment.'
+            : filter === 'important'
+            ? 'No important notifications right now.'
+            : 'You have no notifications right now.'}
         </Text>
       </View>
     );
@@ -490,30 +404,26 @@ export default function NotificationsScreen() {
     index: number;
   }) => {
     const iconColor = getIconColor(item.type);
+    const important = isImportant(item);
 
     return (
       <Animated.View
-        entering={FadeInDown
-          .delay(index * 40)
-          .duration(300)}
+        entering={FadeInDown.delay(index * 40).duration(300)}
       >
         <TouchableOpacity
           style={[
             styles.card,
             !item.read && styles.unreadCard,
+            important && styles.importantCard,
           ]}
           activeOpacity={0.9}
-          onPress={() =>
-            handleNotificationPress(item)
-          }
+          onPress={() => handleNotificationPress(item)}
           onLongPress={() => handleDelete(item)}
         >
           <View
             style={[
               styles.iconContainer,
-              {
-                backgroundColor: `${iconColor}18`,
-              },
+              { backgroundColor: `${iconColor}18` },
             ]}
           >
             <MaterialCommunityIcons
@@ -525,32 +435,34 @@ export default function NotificationsScreen() {
 
           <View style={styles.contentContainer}>
             <View style={styles.topRow}>
-              <Text
-                style={[
-                  styles.typeText,
-                  { color: iconColor },
-                ]}
-              >
-                {getTypeLabel(item.type)}
-              </Text>
+              <View style={styles.typeRow}>
+                <Text
+                  style={[
+                    styles.typeText,
+                    { color: iconColor },
+                  ]}
+                >
+                  {getTypeLabel(item.type)}
+                </Text>
+                {important && (
+                  <View style={styles.importantChip}>
+                    <Text style={styles.importantChipText}>
+                      Important
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               <Text style={styles.timeText}>
                 {formatRelativeTime(item.createdAt)}
               </Text>
             </View>
 
-            <Text style={styles.notificationTitle}>
-              {item.title}
-            </Text>
-
-            <Text style={styles.notificationBody}>
-              {item.body}
-            </Text>
+            <Text style={styles.notificationTitle}>{item.title}</Text>
+            <Text style={styles.notificationBody}>{item.body}</Text>
 
             {item.surgeryId && (
-              <Text style={styles.surgeryLink}>
-                Open surgery details →
-              </Text>
+              <Text style={styles.surgeryLink}>Open surgery details →</Text>
             )}
           </View>
 
@@ -564,12 +476,9 @@ export default function NotificationsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         {renderHeader()}
-
         <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color={COLORS.primary}
-          />
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading notifications…</Text>
         </View>
       </SafeAreaView>
     );
@@ -582,22 +491,14 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         renderSectionHeader={({ section }) => (
-          <Text style={styles.sectionTitle}>
-            {section.title}
-          </Text>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
         )}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={
-          sections.length === 0
-            ? renderEmpty
-            : null
-        }
+        ListEmptyComponent={sections.length === 0 ? renderEmpty : null}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
-        ItemSeparatorComponent={() => (
-          <View style={styles.separator} />
-        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -621,6 +522,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 10,
+  },
+
+  loadingText: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
   },
 
   listContent: {
@@ -692,12 +600,12 @@ const styles = StyleSheet.create({
 
   filterRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
 
   filterButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -710,7 +618,7 @@ const styles = StyleSheet.create({
   },
 
   filterText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.medium,
     color: COLORS.textSecondary,
   },
@@ -726,8 +634,9 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    marginTop: 4,
-    marginBottom: 10,
+    marginTop: 12,
+    marginBottom: 8,
+    marginLeft: 4,
     fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
@@ -736,8 +645,8 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 16,
-    borderRadius: 20,
+    padding: 14,
+    borderRadius: 18,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -748,11 +657,15 @@ const styles = StyleSheet.create({
     borderColor: `${COLORS.primary}25`,
   },
 
+  importantCard: {
+    borderColor: `${COLORS.warning}40`,
+  },
+
   iconContainer: {
-    width: 46,
-    height: 46,
-    marginRight: 14,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    marginRight: 12,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -765,7 +678,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+
+  typeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 
   typeText: {
@@ -780,37 +699,53 @@ const styles = StyleSheet.create({
   },
 
   notificationTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FONTS.semiBold,
     color: COLORS.text,
+    lineHeight: 20,
   },
 
   notificationBody: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 20,
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 18,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
 
   surgeryLink: {
-    marginTop: 10,
+    marginTop: 8,
     fontSize: 12,
     fontFamily: FONTS.medium,
     color: COLORS.primary,
   },
 
   unreadDot: {
-    width: 10,
-    height: 10,
-    marginLeft: 10,
-    marginTop: 8,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    marginLeft: 8,
+    marginTop: 6,
+    borderRadius: 4,
     backgroundColor: COLORS.primary,
   },
 
+  importantChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: `${COLORS.warning}18`,
+    borderWidth: 1,
+    borderColor: `${COLORS.warning}35`,
+  },
+
+  importantChipText: {
+    fontSize: 9,
+    fontFamily: FONTS.bold,
+    color: COLORS.warning,
+  },
+
   separator: {
-    height: 12,
+    height: 10,
   },
 
   emptyContainer: {
@@ -822,17 +757,17 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    marginTop: 18,
-    fontSize: 20,
+    marginTop: 16,
+    fontSize: 18,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
 
   emptyText: {
-    marginTop: 8,
+    marginTop: 6,
     textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },

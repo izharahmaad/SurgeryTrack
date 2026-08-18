@@ -214,10 +214,7 @@ function HeroOverviewCard({
         <View style={styles.heroTopRow}>
           <View style={styles.liveChip}>
             <View style={styles.liveDot} />
-
-            <Text style={styles.liveText}>
-              LIVE NOW
-            </Text>
+            <Text style={styles.liveText}>LIVE NOW</Text>
           </View>
 
           <MaterialCommunityIcons
@@ -231,8 +228,7 @@ function HeroOverviewCard({
           <Text
             style={[
               styles.heroNumber,
-              count === 0 &&
-                styles.heroNumberZero,
+              count === 0 && styles.heroNumberZero,
             ]}
           >
             {count}
@@ -242,7 +238,6 @@ function HeroOverviewCard({
             <Text style={styles.heroLabel}>
               Active Surgeries
             </Text>
-
             <Text style={styles.heroDetail}>
               of {totalCount} total today
             </Text>
@@ -253,15 +248,13 @@ function HeroOverviewCard({
           <View
             style={[
               styles.heroFill,
-              {
-                width: `${percentage}%`,
-              },
+              { width: `${percentage}%` },
             ]}
           />
         </View>
 
         <Text style={styles.heroPercent}>
-          {percentage}% of today&apos;s cases in progress
+          {percentage}% of today's cases in progress
         </Text>
       </LinearGradient>
     </Animated.View>
@@ -282,13 +275,8 @@ function MiniStatCard({
   delay: number;
 }) {
   const count = useAnimatedCount(value);
-  const opacity = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const translateY = useRef(
-    new Animated.Value(16)
-  ).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -320,9 +308,7 @@ function MiniStatCard({
       <View
         style={[
           styles.miniIcon,
-          {
-            backgroundColor: `${color}18`,
-          },
+          { backgroundColor: `${color}18` },
         ]}
       >
         <MaterialCommunityIcons
@@ -335,16 +321,13 @@ function MiniStatCard({
       <Text
         style={[
           styles.miniValue,
-          count === 0 &&
-            styles.miniValueZero,
+          count === 0 && styles.miniValueZero,
         ]}
       >
         {count}
       </Text>
 
-      <Text style={styles.miniLabel}>
-        {label}
-      </Text>
+      <Text style={styles.miniLabel}>{label}</Text>
     </Animated.View>
   );
 }
@@ -372,8 +355,7 @@ function QuickActions({
       label: 'New Case',
       color: COLORS.primary,
       show: canCreate,
-      onPress: () =>
-        navigation.navigate('CreateSurgery'),
+      onPress: () => navigation.navigate('CreateSurgery'),
     },
     {
       icon: 'account-group',
@@ -420,9 +402,7 @@ function QuickActions({
             <View
               style={[
                 styles.quickCircle,
-                {
-                  backgroundColor: `${action.color}16`,
-                },
+                { backgroundColor: `${action.color}16` },
               ]}
             >
               <MaterialCommunityIcons
@@ -432,9 +412,7 @@ function QuickActions({
               />
             </View>
 
-            <Text style={styles.quickLabel}>
-              {action.label}
-            </Text>
+            <Text style={styles.quickLabel}>{action.label}</Text>
           </Pressable>
         ))}
     </View>
@@ -449,17 +427,13 @@ function OTRoomStatus({
   const occupiedRooms = new Set(
     surgeries
       .filter((surgery) =>
-        ACTIVE_STATUSES.includes(
-          surgery.status as any
-        )
+        ACTIVE_STATUSES.includes(surgery.status as any)
       )
       .map((surgery) => surgery.otRoom)
   );
 
   const rooms = Array.from(
-    new Set(
-      surgeries.map((surgery) => surgery.otRoom)
-    )
+    new Set(surgeries.map((surgery) => surgery.otRoom))
   ).slice(0, 6);
 
   if (rooms.length === 0) {
@@ -468,18 +442,12 @@ function OTRoomStatus({
 
   return (
     <View style={styles.sectionBlock}>
-      <Text style={styles.subSectionTitle}>
-        OT Room Status
-      </Text>
+      <Text style={styles.subSectionTitle}>OT Room Status</Text>
 
       <View style={styles.roomGrid}>
         {rooms.map((room) => {
-          const isOccupied =
-            occupiedRooms.has(room);
-
-          const color = isOccupied
-            ? COLORS.error
-            : COLORS.success;
+          const isOccupied = occupiedRooms.has(room);
+          const color = isOccupied ? COLORS.error : COLORS.success;
 
           return (
             <View
@@ -495,22 +463,14 @@ function OTRoomStatus({
               <View
                 style={[
                   styles.roomDot,
-                  {
-                    backgroundColor: color,
-                  },
+                  { backgroundColor: color },
                 ]}
               />
-
-              <Text style={styles.roomName}>
-                {room}
-              </Text>
-
+              <Text style={styles.roomName}>{room}</Text>
               <Text
                 style={[
                   styles.roomStatus,
-                  {
-                    color,
-                  },
+                  { color },
                 ]}
               >
                 {isOccupied ? 'In Use' : 'Free'}
@@ -540,9 +500,7 @@ function LoadingState() {
         />
       </Animated.View>
 
-      <Text style={styles.loadingText}>
-        Loading surgeries...
-      </Text>
+      <Text style={styles.loadingText}>Loading surgeries...</Text>
     </View>
   );
 }
@@ -557,10 +515,7 @@ function EmptyState({
   return (
     <View style={styles.emptyState}>
       <LinearGradient
-        colors={[
-          COLORS.primary,
-          COLORS.secondary,
-        ]}
+        colors={[COLORS.primary, COLORS.secondary]}
         style={styles.emptyIcon}
       >
         <MaterialCommunityIcons
@@ -570,9 +525,7 @@ function EmptyState({
         />
       </LinearGradient>
 
-      <Text style={styles.emptyTitle}>
-        No Surgeries Yet
-      </Text>
+      <Text style={styles.emptyTitle}>No Surgeries Yet</Text>
 
       <Text style={styles.emptySubtitle}>
         {canCreate
@@ -583,10 +536,7 @@ function EmptyState({
       {canCreate && (
         <Pressable onPress={onCreate}>
           <LinearGradient
-            colors={[
-              COLORS.primary,
-              COLORS.secondary,
-            ]}
+            colors={[COLORS.primary, COLORS.secondary]}
             style={styles.emptyButton}
           >
             <MaterialCommunityIcons
@@ -594,10 +544,7 @@ function EmptyState({
               size={18}
               color={COLORS.surface}
             />
-
-            <Text style={styles.emptyButtonText}>
-              Create Surgery
-            </Text>
+            <Text style={styles.emptyButtonText}>Create Surgery</Text>
           </LinearGradient>
         </Pressable>
       )}
@@ -614,23 +561,12 @@ function SurgeryCard({
   index: number;
   onPress: () => void;
 }) {
-  const opacity = useRef(
-    new Animated.Value(0)
-  ).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(24)).current;
 
-  const translateY = useRef(
-    new Animated.Value(24)
-  ).current;
-
-  const statusConfig =
-    STATUS_COLORS[surgery.status];
-
-  const isActive = ACTIVE_STATUSES.includes(
-    surgery.status as any
-  );
-
-  const isEmergency =
-    surgery.status === 'emergency';
+  const statusConfig = STATUS_COLORS[surgery.status];
+  const isActive = ACTIVE_STATUSES.includes(surgery.status as any);
+  const isEmergency = surgery.status === 'emergency';
 
   useEffect(() => {
     Animated.parallel([
@@ -649,9 +585,7 @@ function SurgeryCard({
     ]).start();
   }, [index, opacity, translateY]);
 
-  const date = toSafeDate(
-    surgery.scheduledDate
-  );
+  const date = toSafeDate(surgery.scheduledDate);
 
   const time = date
     ? date.toLocaleTimeString('en-US', {
@@ -664,15 +598,15 @@ function SurgeryCard({
     surgery.status === 'in_surgery'
       ? '60%'
       : surgery.status === 'recovery'
-        ? '85%'
-        : '20%';
+      ? '85%'
+      : '20%';
 
   const progressLabel =
     surgery.status === 'pre_op'
       ? 'Preparing...'
       : surgery.status === 'in_surgery'
-        ? 'In Progress'
-        : 'Recovering';
+      ? 'In Progress'
+      : 'Recovering';
 
   return (
     <Animated.View
@@ -688,33 +622,26 @@ function SurgeryCard({
         }}
         style={({ pressed }) => [
           styles.surgeryCard,
-          isEmergency &&
-            styles.emergencyCard,
+          isEmergency && styles.emergencyCard,
           pressed && styles.pressed,
         ]}
       >
         <View
           style={[
             styles.accentBar,
-            {
-              backgroundColor: statusConfig.text,
-            },
+            { backgroundColor: statusConfig.text },
           ]}
         />
 
         <View style={styles.surgeryContent}>
           <View style={styles.surgeryTopRow}>
             <View style={styles.patientInfo}>
-              <Text
-                style={styles.patientName}
-                numberOfLines={1}
-              >
+              <Text style={styles.patientName} numberOfLines={1}>
                 {surgery.patientName}
               </Text>
 
               <Text style={styles.patientMeta}>
-                {surgery.patientAge} yrs •{' '}
-                {surgery.patientGender}
+                {surgery.patientAge} yrs • {surgery.patientGender}
               </Text>
             </View>
 
@@ -722,10 +649,8 @@ function SurgeryCard({
               style={[
                 styles.statusBadge,
                 {
-                  backgroundColor:
-                    statusConfig.bg,
-                  borderColor:
-                    statusConfig.border,
+                  backgroundColor: statusConfig.bg,
+                  borderColor: statusConfig.border,
                 },
               ]}
             >
@@ -733,10 +658,7 @@ function SurgeryCard({
                 <View
                   style={[
                     styles.pulseDot,
-                    {
-                      backgroundColor:
-                        statusConfig.text,
-                    },
+                    { backgroundColor: statusConfig.text },
                   ]}
                 />
               )}
@@ -744,9 +666,7 @@ function SurgeryCard({
               <Text
                 style={[
                   styles.statusText,
-                  {
-                    color: statusConfig.text,
-                  },
+                  { color: statusConfig.text },
                 ]}
               >
                 {STATUS_LABELS[surgery.status]}
@@ -760,11 +680,7 @@ function SurgeryCard({
               size={15}
               color={COLORS.primary}
             />
-
-            <Text
-              style={styles.operationType}
-              numberOfLines={1}
-            >
+            <Text style={styles.operationType} numberOfLines={1}>
               {surgery.operationType}
             </Text>
           </View>
@@ -776,11 +692,7 @@ function SurgeryCard({
                 size={13}
                 color={COLORS.textMuted}
               />
-
-              <Text
-                style={styles.metaText}
-                numberOfLines={1}
-              >
+              <Text style={styles.metaText} numberOfLines={1}>
                 {surgery.doctorName}
               </Text>
             </View>
@@ -791,10 +703,7 @@ function SurgeryCard({
                 size={13}
                 color={COLORS.textMuted}
               />
-
-              <Text style={styles.metaText}>
-                {surgery.otRoom}
-              </Text>
+              <Text style={styles.metaText}>{surgery.otRoom}</Text>
             </View>
 
             <View style={styles.metaItem}>
@@ -803,10 +712,7 @@ function SurgeryCard({
                 size={13}
                 color={COLORS.textMuted}
               />
-
-              <Text style={styles.metaText}>
-                {time}
-              </Text>
+              <Text style={styles.metaText}>{time}</Text>
             </View>
           </View>
 
@@ -818,8 +724,7 @@ function SurgeryCard({
                     styles.progressFill,
                     {
                       width: progressWidth,
-                      backgroundColor:
-                        statusConfig.text,
+                      backgroundColor: statusConfig.text,
                     },
                   ]}
                 />
@@ -828,9 +733,7 @@ function SurgeryCard({
               <Text
                 style={[
                   styles.progressText,
-                  {
-                    color: statusConfig.text,
-                  },
+                  { color: statusConfig.text },
                 ]}
               >
                 {progressLabel}
@@ -854,56 +757,24 @@ function SurgeryCard({
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
 
-  const user = useAuthStore(
-    (state) => state.user
-  );
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
 
-  const logout = useAuthStore(
-    (state) => state.logout
-  );
+  const [surgeries, setSurgeries] = useState<SurgeryOperation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
-  const [surgeries, setSurgeries] =
-    useState<SurgeryOperation[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [selectedFilter, setSelectedFilter] =
-    useState<FilterType>('all');
-
-  const [searchQuery, setSearchQuery] =
-    useState('');
-
-  const [searchOpen, setSearchOpen] =
-    useState(false);
-
-  const headerOpacity = useRef(
-    new Animated.Value(0)
-  ).current;
-
-  const headerTranslate = useRef(
-    new Animated.Value(-14)
-  ).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslate = useRef(new Animated.Value(-14)).current;
 
   const userRole = user?.role ?? '';
-
-  const isHospitalStaff =
-    HOSPITAL_ROLES.includes(
-      userRole as any
-    );
-
-  const isFamily =
-    userRole === 'family';
-
-  const canCreate =
-    isHospitalStaff;
-
-  const missingHospitalId =
-    isHospitalStaff &&
-    !user?.hospitalId;
+  const isHospitalStaff = HOSPITAL_ROLES.includes(userRole as any);
+  const isFamily = userRole === 'family';
+  const canCreate = isHospitalStaff;
+  const missingHospitalId = isHospitalStaff && !user?.hospitalId;
 
   useEffect(() => {
     Animated.parallel([
@@ -929,13 +800,9 @@ export default function DashboardScreen() {
       return;
     }
 
-    let unsubscribe:
-      | (() => void)
-      | undefined;
+    let unsubscribe: (() => void) | undefined;
 
-    const handleData = (
-      data: SurgeryOperation[]
-    ) => {
+    const handleData = (data: SurgeryOperation[]) => {
       setSurgeries(data);
       setLoading(false);
     };
@@ -955,42 +822,36 @@ export default function DashboardScreen() {
         console.warn(
           'Hospital staff user has no hospitalId'
         );
-
         setLoading(false);
         return;
       }
 
-      unsubscribe =
-        subscribeToSurgeriesByHospital(
-          user.hospitalId,
-          handleData,
-          handleError
-        );
+      unsubscribe = subscribeToSurgeriesByHospital(
+        user.hospitalId,
+        handleData,
+        handleError
+      );
     } else if (isFamily) {
-      const phoneNumber =
-        user.phoneNumber?.trim();
+      const phoneNumber = user.phoneNumber?.trim();
 
       if (!phoneNumber) {
         console.warn(
           'Family user has no phoneNumber'
         );
-
         setLoading(false);
         return;
       }
 
-      unsubscribe =
-        subscribeToSurgeriesByFamilyPhone(
-          phoneNumber,
-          handleData,
-          handleError
-        );
+      unsubscribe = subscribeToSurgeriesByFamilyPhone(
+        phoneNumber,
+        handleData,
+        handleError
+      );
     } else {
       console.warn(
         'Unknown role; no surgery query started:',
         user.role
       );
-
       setLoading(false);
       return;
     }
@@ -1024,26 +885,17 @@ export default function DashboardScreen() {
   const stats = useMemo(() => {
     return {
       total: surgeries.length,
-
       active: surgeries.filter((surgery) =>
-        ACTIVE_STATUSES.includes(
-          surgery.status as any
-        )
+        ACTIVE_STATUSES.includes(surgery.status as any)
       ).length,
-
       completed: surgeries.filter(
-        (surgery) =>
-          surgery.status === 'completed'
+        (surgery) => surgery.status === 'completed'
       ).length,
-
       emergency: surgeries.filter(
-        (surgery) =>
-          surgery.status === 'emergency'
+        (surgery) => surgery.status === 'emergency'
       ).length,
-
       scheduled: surgeries.filter(
-        (surgery) =>
-          surgery.status === 'scheduled'
+        (surgery) => surgery.status === 'scheduled'
       ).length,
     };
   }, [surgeries]);
@@ -1053,26 +905,10 @@ export default function DashboardScreen() {
     label: string;
     icon: string;
   }[] = [
-    {
-      id: 'all',
-      label: 'All',
-      icon: 'view-grid-outline',
-    },
-    {
-      id: 'active',
-      label: 'Active',
-      icon: 'pulse',
-    },
-    {
-      id: 'scheduled',
-      label: 'Scheduled',
-      icon: 'calendar-clock-outline',
-    },
-    {
-      id: 'emergency',
-      label: 'Emergency',
-      icon: 'alert-circle-outline',
-    },
+    { id: 'all', label: 'All', icon: 'view-grid-outline' },
+    { id: 'active', label: 'Active', icon: 'pulse' },
+    { id: 'scheduled', label: 'Scheduled', icon: 'calendar-clock-outline' },
+    { id: 'emergency', label: 'Emergency', icon: 'alert-circle-outline' },
   ];
 
   const filteredSurgeries = useMemo(() => {
@@ -1080,28 +916,23 @@ export default function DashboardScreen() {
 
     if (selectedFilter === 'active') {
       result = result.filter((surgery) =>
-        ACTIVE_STATUSES.includes(
-          surgery.status as any
-        )
+        ACTIVE_STATUSES.includes(surgery.status as any)
       );
     }
 
     if (selectedFilter === 'scheduled') {
       result = result.filter(
-        (surgery) =>
-          surgery.status === 'scheduled'
+        (surgery) => surgery.status === 'scheduled'
       );
     }
 
     if (selectedFilter === 'emergency') {
       result = result.filter(
-        (surgery) =>
-          surgery.status === 'emergency'
+        (surgery) => surgery.status === 'emergency'
       );
     }
 
-    const search =
-      searchQuery.trim().toLowerCase();
+    const search = searchQuery.trim().toLowerCase();
 
     if (!search) {
       return result;
@@ -1109,38 +940,19 @@ export default function DashboardScreen() {
 
     return result.filter(
       (surgery) =>
-        surgery.patientName
-          ?.toLowerCase()
-          .includes(search) ||
-        surgery.operationType
-          ?.toLowerCase()
-          .includes(search) ||
-        surgery.doctorName
-          ?.toLowerCase()
-          .includes(search)
+        surgery.patientName?.toLowerCase().includes(search) ||
+        surgery.operationType?.toLowerCase().includes(search) ||
+        surgery.doctorName?.toLowerCase().includes(search)
     );
-  }, [
-    searchQuery,
-    selectedFilter,
-    surgeries,
-  ]);
+  }, [searchQuery, selectedFilter, surgeries]);
 
   const handleLogout = async () => {
-    Haptics.impactAsync(
-      Haptics.ImpactFeedbackStyle.Medium
-    );
-
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
   };
 
-  const firstName =
-    user?.displayName?.split(' ')[0] ??
-    'there';
-
-  const avatarInitial = (
-    user?.displayName?.charAt(0) ??
-    'U'
-  ).toUpperCase();
+  const firstName = user?.displayName?.split(' ')[0] ?? 'there';
+  const avatarInitial = (user?.displayName?.charAt(0) ?? 'U').toUpperCase();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1150,39 +962,22 @@ export default function DashboardScreen() {
             styles.header,
             {
               opacity: headerOpacity,
-              transform: [
-                {
-                  translateY: headerTranslate,
-                },
-              ],
+              transform: [{ translateY: headerTranslate }],
             },
           ]}
         >
           <View style={styles.headerLeft}>
             <LinearGradient
-              colors={[
-                COLORS.primary,
-                COLORS.secondary,
-              ]}
+              colors={[COLORS.primary, COLORS.secondary]}
               style={styles.avatar}
             >
-              <Text style={styles.avatarText}>
-                {avatarInitial}
-              </Text>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
             </LinearGradient>
 
             <View style={styles.headerText}>
-              <Text style={styles.greeting}>
-                {getGreeting()},
-              </Text>
-
-              <Text
-                style={styles.userName}
-                numberOfLines={1}
-              >
-                {userRole === 'doctor'
-                  ? 'Dr. '
-                  : ''}
+              <Text style={styles.greeting}>{getGreeting()},</Text>
+              <Text style={styles.userName} numberOfLines={1}>
+                {userRole === 'doctor' ? 'Dr. ' : ''}
                 {firstName}
               </Text>
             </View>
@@ -1191,18 +986,10 @@ export default function DashboardScreen() {
           <View style={styles.headerActions}>
             <Pressable
               style={styles.iconButton}
-              onPress={() =>
-                setSearchOpen(
-                  (value) => !value
-                )
-              }
+              onPress={() => setSearchOpen((value) => !value)}
             >
               <MaterialCommunityIcons
-                name={
-                  searchOpen
-                    ? 'close'
-                    : 'magnify'
-                }
+                name={searchOpen ? 'close' : 'magnify'}
                 size={20}
                 color={COLORS.text}
               />
@@ -1211,12 +998,9 @@ export default function DashboardScreen() {
             <Pressable
               style={styles.iconButton}
               onPress={() =>
-                navigation.navigate(
-                  'Dashboard',
-                  {
-                    screen: 'Notifications',
-                  }
-                )
+                navigation.navigate('Dashboard', {
+                  screen: 'Notifications',
+                })
               }
             >
               <MaterialCommunityIcons
@@ -1224,12 +1008,9 @@ export default function DashboardScreen() {
                 size={20}
                 color={COLORS.text}
               />
-
               {stats.emergency > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {stats.emergency}
-                  </Text>
+                  <Text style={styles.badgeText}>{stats.emergency}</Text>
                 </View>
               )}
             </Pressable>
@@ -1254,13 +1035,10 @@ export default function DashboardScreen() {
               size={18}
               color={COLORS.textMuted}
             />
-
             <TextInput
               style={styles.searchInput}
               placeholder="Search patient, doctor, or procedure..."
-              placeholderTextColor={
-                COLORS.textMuted
-              }
+              placeholderTextColor={COLORS.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -1275,19 +1053,15 @@ export default function DashboardScreen() {
               size={17}
               color={COLORS.warning}
             />
-
             <Text style={styles.warningText}>
-              Your account has no hospital assigned.
-              Contact your admin to see surgery data.
+              Your account has no hospital assigned. Contact your admin to see surgery data.
             </Text>
           </View>
         )}
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={
-            styles.scrollContent
-          }
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -1298,19 +1072,13 @@ export default function DashboardScreen() {
         >
           <View style={styles.statsSection}>
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.overviewTitle}>
-                Overview
-              </Text>
-
+              <Text style={styles.overviewTitle}>Overview</Text>
               <Text style={styles.dateText}>
-                {new Date().toLocaleDateString(
-                  'en-US',
-                  {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                  }
-                )}
+                {new Date().toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </Text>
             </View>
 
@@ -1322,9 +1090,7 @@ export default function DashboardScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={
-                styles.miniStatsRow
-              }
+              contentContainerStyle={styles.miniStatsRow}
             >
               <MiniStatCard
                 icon="calendar-check-outline"
@@ -1333,7 +1099,6 @@ export default function DashboardScreen() {
                 color={COLORS.primary}
                 delay={100}
               />
-
               <MiniStatCard
                 icon="check-circle-outline"
                 label="Completed"
@@ -1341,7 +1106,6 @@ export default function DashboardScreen() {
                 color={COLORS.success}
                 delay={160}
               />
-
               <MiniStatCard
                 icon="alert-circle-outline"
                 label="Emergency"
@@ -1349,7 +1113,6 @@ export default function DashboardScreen() {
                 color={COLORS.error}
                 delay={220}
               />
-
               <MiniStatCard
                 icon="clock-outline"
                 label="Scheduled"
@@ -1360,56 +1123,38 @@ export default function DashboardScreen() {
             </ScrollView>
           </View>
 
-          <QuickActions
-            navigation={navigation}
-            canCreate={canCreate}
-          />
-
-          <OTRoomStatus
-            surgeries={surgeries}
-          />
+          <QuickActions navigation={navigation} canCreate={canCreate} />
+          <OTRoomStatus surgeries={surgeries} />
 
           <View style={styles.filterSection}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={
-                styles.filterRow
-              }
+              contentContainerStyle={styles.filterRow}
             >
               {filters.map((filter) => {
-                const active =
-                  selectedFilter === filter.id;
+                const active = selectedFilter === filter.id;
 
                 return (
                   <Pressable
                     key={filter.id}
-                    onPress={() =>
-                      setSelectedFilter(
-                        filter.id
-                      )
-                    }
+                    onPress={() => setSelectedFilter(filter.id)}
                     style={[
                       styles.filterTab,
-                      active &&
-                        styles.filterTabActive,
+                      active && styles.filterTabActive,
                     ]}
                   >
                     <MaterialCommunityIcons
                       name={filter.icon as any}
                       size={15}
                       color={
-                        active
-                          ? COLORS.surface
-                          : COLORS.textSecondary
+                        active ? COLORS.surface : COLORS.textSecondary
                       }
                     />
-
                     <Text
                       style={[
                         styles.filterText,
-                        active &&
-                          styles.filterTextActive,
+                        active && styles.filterTextActive,
                       ]}
                     >
                       {filter.label}
@@ -1426,12 +1171,9 @@ export default function DashboardScreen() {
                 {selectedFilter === 'all'
                   ? 'Recent Surgeries'
                   : `${filters.find(
-                      (filter) =>
-                        filter.id ===
-                        selectedFilter
+                      (filter) => filter.id === selectedFilter
                     )?.label} Surgeries`}
               </Text>
-
               <Text style={styles.sectionCount}>
                 {filteredSurgeries.length} found
               </Text>
@@ -1442,32 +1184,22 @@ export default function DashboardScreen() {
             ) : filteredSurgeries.length === 0 ? (
               <EmptyState
                 canCreate={canCreate}
-                onCreate={() =>
-                  navigation.navigate(
-                    'CreateSurgery'
-                  )
-                }
+                onCreate={() => navigation.navigate('CreateSurgery')}
               />
             ) : (
               <View style={styles.surgeryList}>
-                {filteredSurgeries.map(
-                  (surgery, index) => (
-                    <SurgeryCard
-                      key={surgery.id}
-                      surgery={surgery}
-                      index={index}
-                      onPress={() =>
-                        navigation.navigate(
-                          'SurgeryDetail',
-                          {
-                            surgeryId:
-                              surgery.id,
-                          }
-                        )
-                      }
-                    />
-                  )
-                )}
+                {filteredSurgeries.map((surgery, index) => (
+                  <SurgeryCard
+                    key={surgery.id}
+                    surgery={surgery}
+                    index={index}
+                    onPress={() =>
+                      navigation.navigate('SurgeryDetail', {
+                        surgeryId: surgery.id,
+                      })
+                    }
+                  />
+                ))}
               </View>
             )}
           </View>
@@ -1478,17 +1210,10 @@ export default function DashboardScreen() {
         {canCreate && (
           <Pressable
             style={styles.fab}
-            onPress={() =>
-              navigation.navigate(
-                'CreateSurgery'
-              )
-            }
+            onPress={() => navigation.navigate('CreateSurgery')}
           >
             <LinearGradient
-              colors={[
-                COLORS.primary,
-                COLORS.secondary,
-              ]}
+              colors={[COLORS.primary, COLORS.secondary]}
               style={styles.fabInner}
             >
               <MaterialCommunityIcons
