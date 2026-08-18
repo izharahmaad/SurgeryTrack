@@ -7,12 +7,14 @@ import {
   ScrollView,
   Alert,
   Switch,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
+
 import { COLORS, FONTS } from '../../constants';
 import { useAuthStore } from '../../hooks/useAuthStore';
 
@@ -21,7 +23,6 @@ export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   const initials = useMemo(() => {
     const name = user?.displayName?.trim() || 'User';
@@ -36,12 +37,12 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout from SurgeryTrack?',
+      'Log Out',
+      'Are you sure you want to log out from SurgeryTrack?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Logout',
+          text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -68,18 +69,40 @@ export default function ProfileScreen() {
     });
   };
 
+  const openUrl = async (url: string, label: string) => {
+    Haptics.selectionAsync();
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Toast.show({
+        type: 'info',
+        text1: label,
+        text2: 'No content available yet',
+      });
+    }
+  };
+
   const profileItems = [
     {
       icon: 'account-edit-outline',
       label: 'Edit Profile',
       subtitle: 'Update your name and account details',
-      onPress: () => handleComingSoon('Edit Profile'),
+      onPress: () => {
+        Haptics.selectionAsync();
+        // If you have an EditProfile screen:
+        // navigation.navigate('EditProfile');
+        handleComingSoon('Edit Profile');
+      },
     },
     {
       icon: 'bell-outline',
       label: 'Notifications',
       subtitle: 'Manage surgery and reminder alerts',
-      onPress: () => navigation.navigate('Notifications'),
+      onPress: () => {
+        Haptics.selectionAsync();
+        navigation.navigate('Notifications');
+      },
     },
   ];
 
@@ -88,19 +111,30 @@ export default function ProfileScreen() {
       icon: 'shield-check-outline',
       label: 'Privacy Policy',
       subtitle: 'How your data is protected',
-      onPress: () => handleComingSoon('Privacy Policy'),
+      onPress: () =>
+        openUrl(
+          'https://example.com/privacy',
+          'Privacy Policy'
+        ),
     },
     {
       icon: 'help-circle-outline',
       label: 'Help & Support',
       subtitle: 'Get help and contact support',
-      onPress: () => handleComingSoon('Help & Support'),
+      onPress: () =>
+        openUrl(
+          'https://example.com/support',
+          'Help & Support'
+        ),
     },
     {
       icon: 'information-outline',
       label: 'About SurgeryTrack',
       subtitle: 'App version and information',
-      onPress: () => handleComingSoon('About SurgeryTrack'),
+      onPress: () => {
+        Haptics.selectionAsync();
+        navigation.navigate('About');
+      },
     },
   ];
 
@@ -129,7 +163,7 @@ export default function ProfileScreen() {
         <View style={styles.menuIcon}>
           <MaterialCommunityIcons
             name={item.icon as any}
-            size={22}
+            size={20}
             color={COLORS.primary}
           />
         </View>
@@ -143,7 +177,7 @@ export default function ProfileScreen() {
       {item.rightNode ?? (
         <MaterialCommunityIcons
           name="chevron-right"
-          size={22}
+          size={20}
           color={COLORS.textMuted}
         />
       )}
@@ -152,12 +186,26 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Scrollable content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Header */}
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={18}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
+
           <Text style={styles.headerTitle}>Profile</Text>
+
           <TouchableOpacity
             style={styles.headerAction}
             onPress={() => handleComingSoon('Settings')}
@@ -165,12 +213,13 @@ export default function ProfileScreen() {
           >
             <MaterialCommunityIcons
               name="cog-outline"
-              size={22}
+              size={20}
               color={COLORS.text}
             />
           </TouchableOpacity>
         </View>
 
+        {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -201,6 +250,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Account */}
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.sectionCard}>
           {profileItems.map((item, index) =>
@@ -208,37 +258,9 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Preferences */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.sectionCard}>
-          {renderMenuItem(
-            {
-              icon: 'theme-light-dark',
-              label: 'Dark Mode',
-              subtitle: 'Switch app appearance',
-              rightNode: (
-                <Switch
-                  value={darkModeEnabled}
-                  onValueChange={(value) => {
-                    setDarkModeEnabled(value);
-                    Haptics.selectionAsync();
-                    Toast.show({
-                      type: 'info',
-                      text1: 'Dark Mode',
-                      text2: 'Theme integration can be connected next',
-                    });
-                  }}
-                  trackColor={{
-                    false: COLORS.border,
-                    true: COLORS.primaryLight,
-                  }}
-                  thumbColor={darkModeEnabled ? COLORS.primary : COLORS.surface}
-                />
-              ),
-            },
-            0,
-            2
-          )}
-
           {renderMenuItem(
             {
               icon: 'bell-badge-outline',
@@ -250,6 +272,10 @@ export default function ProfileScreen() {
                   onValueChange={(value) => {
                     setNotificationsEnabled(value);
                     Haptics.selectionAsync();
+                    Toast.show({
+                      type: value ? 'success' : 'info',
+                      text1: value ? 'Notifications enabled' : 'Notifications disabled',
+                    });
                   }}
                   trackColor={{
                     false: COLORS.border,
@@ -259,11 +285,12 @@ export default function ProfileScreen() {
                 />
               ),
             },
-            1,
-            2
+            0,
+            1
           )}
         </View>
 
+        {/* Support */}
         <Text style={styles.sectionTitle}>Support</Text>
         <View style={styles.sectionCard}>
           {supportItems.map((item, index) =>
@@ -271,21 +298,25 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Bottom spacer so content doesn't overlap logout */}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* Fixed circular logout button at bottom */}
+      <View style={styles.logoutContainer}>
         <TouchableOpacity
           onPress={handleLogout}
           activeOpacity={0.9}
-          style={styles.logoutBtn}
+          style={styles.logoutButton}
         >
           <MaterialCommunityIcons
             name="logout"
-            size={20}
+            size={22}
             color={COLORS.error}
           />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
-
-        <Text style={styles.versionText}>SurgeryTrack v1.0.0</Text>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -295,79 +326,101 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+
   scrollContent: {
-    padding: 20,
-    paddingBottom: 36,
+    padding: 16,
+    // No paddingBottom here; we use a spacer + fixed logout bar
   },
 
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 18,
+    marginBottom: 12,
   },
+
+  backButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
   headerTitle: {
-    fontSize: 26,
+    fontSize: 18,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
+
   headerAction: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
+  // Profile card
   profileCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: 22,
+    padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 22,
+    marginBottom: 16,
   },
+
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
+
   avatarText: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: FONTS.bold,
     color: COLORS.primary,
   },
+
   name: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
+
   email: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
+
   roleBadge: {
-    marginTop: 14,
-    backgroundColor: `${COLORS.primaryLight}`,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    marginTop: 12,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
+
   roleText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
@@ -375,117 +428,137 @@ const styles = StyleSheet.create({
   quickStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
+    marginTop: 16,
     backgroundColor: COLORS.background,
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     width: '100%',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   statBox: {
     flex: 1,
     alignItems: 'center',
   },
+
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
+
   statValue: {
-    marginTop: 4,
-    fontSize: 14,
+    marginTop: 3,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.text,
     textTransform: 'capitalize',
   },
+
   statDivider: {
     width: 1,
-    height: 34,
+    height: 30,
     backgroundColor: COLORS.border,
+    marginHorizontal: 12,
   },
 
+  // Sections
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.textSecondary,
-    marginBottom: 10,
-    marginTop: 6,
+    marginBottom: 8,
+    marginTop: 4,
   },
+
   sectionCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 18,
+    marginBottom: 14,
     overflow: 'hidden',
   },
 
+  // Menu items
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 14,
   },
+
   menuItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
+
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     marginRight: 10,
   },
+
   menuIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
+
   menuTextWrap: {
     flex: 1,
   },
+
   menuLabel: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.text,
   },
+
   menuSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
-    marginTop: 2,
+    marginTop: 1,
   },
 
-  logoutBtn: {
+  // Fixed logout bar at bottom
+  logoutContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+
+  logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginTop: 10,
-    backgroundColor: COLORS.errorLight,
-    borderRadius: 18,
-    paddingVertical: 17,
+    backgroundColor: `${COLORS.error}10`,
+    borderRadius: 999,
+    paddingVertical: 14,
     borderWidth: 1,
-    borderColor: `${COLORS.error}40`,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontFamily: FONTS.bold,
-    color: COLORS.error,
+    borderColor: `${COLORS.error}30`,
   },
 
-  versionText: {
-    textAlign: 'center',
-    marginTop: 16,
-    fontSize: 12,
-    fontFamily: FONTS.regular,
-    color: COLORS.textMuted,
+  logoutText: {
+    fontSize: 14,
+    fontFamily: FONTS.bold,
+    color: COLORS.error,
   },
 });

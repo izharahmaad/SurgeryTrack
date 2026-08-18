@@ -55,6 +55,7 @@ import SurgeryDetailScreen from './src/screens/hospital/SurgeryDetailScreen';
 import UpdateStatusScreen from './src/screens/hospital/UpdateStatusScreen';
 import ScanScreen from './src/screens/family/ScanScreen';
 import ChatBotScreen from './src/screens/family/ChatBotScreen';
+import AboutScreen from './src/screens/shared/AboutScreen'; // <-- shared folder
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -72,6 +73,7 @@ type RootStackParamList = {
   };
   Scan: undefined;
   ChatBot: undefined;
+  About: undefined;
 };
 
 type AuthStackParamList = {
@@ -333,6 +335,11 @@ function MainNavigator() {
       <MainStack.Screen
         name="ChatBot"
         component={ChatBotScreen}
+      />
+
+      <MainStack.Screen
+        name="About"
+        component={AboutScreen}
       />
     </MainStack.Navigator>
   );
