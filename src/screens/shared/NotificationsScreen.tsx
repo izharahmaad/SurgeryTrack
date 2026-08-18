@@ -20,10 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  FadeInDown,
-  FadeOutUp,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { COLORS, FONTS } from '../../constants';
 import type { Notification } from '../../types';
@@ -45,35 +42,25 @@ type NotificationSection = {
 };
 
 function toSafeDate(value: any): Date {
-  if (!value) {
-    return new Date();
-  }
-
-  if (value instanceof Date) {
-    return value;
-  }
-
-  if (typeof value?.toDate === 'function') {
-    return value.toDate();
-  }
-
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === 'function') return value.toDate();
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 function formatRelativeTime(value: any): string {
   const created = toSafeDate(value).getTime();
-  const difference = Date.now() - created;
+  const diff = Date.now() - created;
 
-  const minutes = Math.floor(difference / (1000 * 60));
-  const hours = Math.floor(difference / (1000 * 60 * 60));
-  const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-
   return toSafeDate(value).toLocaleDateString();
 }
 
@@ -186,9 +173,7 @@ export default function NotificationsScreen() {
       }
     );
 
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [user?.uid]);
 
   const unreadCount = useMemo(
@@ -207,30 +192,19 @@ export default function NotificationsScreen() {
   }, [items, filter]);
 
   const sections = useMemo<NotificationSection[]>(() => {
-    const today = filteredItems.filter((item) =>
-      isToday(item.createdAt)
-    );
-    const earlier = filteredItems.filter(
-      (item) => !isToday(item.createdAt)
-    );
+    const today = filteredItems.filter((item) => isToday(item.createdAt));
+    const earlier = filteredItems.filter((item) => !isToday(item.createdAt));
 
     const result: NotificationSection[] = [];
-    if (today.length > 0) {
-      result.push({ title: 'Today', data: today });
-    }
-    if (earlier.length > 0) {
-      result.push({ title: 'Earlier', data: earlier });
-    }
+    if (today.length > 0) result.push({ title: 'Today', data: today });
+    if (earlier.length > 0) result.push({ title: 'Earlier', data: earlier });
     return result;
   }, [filteredItems]);
 
   const handleMarkRead = async (id: string) => {
     setItems((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, read: true } : item
-      )
+      current.map((item) => (item.id === id ? { ...item, read: true } : item))
     );
-
     try {
       await markNotificationRead(id);
     } catch (error) {
@@ -246,10 +220,7 @@ export default function NotificationsScreen() {
     if (unreadIds.length === 0) return;
 
     Haptics.selectionAsync();
-
-    setItems((current) =>
-      current.map((item) => ({ ...item, read: true }))
-    );
+    setItems((current) => current.map((item) => ({ ...item, read: true })));
 
     try {
       await markAllNotificationsRead(unreadIds);
@@ -268,11 +239,7 @@ export default function NotificationsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setItems((current) =>
-              current.filter(
-                (notification) => notification.id !== item.id
-              )
-            );
+            setItems((current) => current.filter((n) => n.id !== item.id));
             try {
               await deleteNotification(item.id);
             } catch (error) {
@@ -286,23 +253,15 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = async (item: Notification) => {
     Haptics.selectionAsync();
-
-    if (!item.read) {
-      await handleMarkRead(item.id);
-    }
-
+    if (!item.read) await handleMarkRead(item.id);
     if (item.surgeryId) {
-      navigation.navigate('SurgeryDetail', {
-        surgeryId: item.surgeryId,
-      });
+      navigation.navigate('SurgeryDetail', { surgeryId: item.surgeryId });
     }
   };
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 700);
+    setTimeout(() => setRefreshing(false), 700);
   };
 
   const renderHeader = () => {
@@ -315,7 +274,7 @@ export default function NotificationsScreen() {
           >
             <MaterialCommunityIcons
               name="arrow-left"
-              size={22}
+              size={20}
               color={COLORS.text}
             />
           </TouchableOpacity>
@@ -336,34 +295,28 @@ export default function NotificationsScreen() {
 
         <View style={styles.actionRow}>
           <View style={styles.filterRow}>
-            {(['all', 'unread', 'important'] as FilterType[]).map(
-              (f) => {
-                const active = filter === f;
-                return (
-                  <TouchableOpacity
-                    key={f}
+            {(['all', 'unread', 'important'] as FilterType[]).map((f) => {
+              const active = filter === f;
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[
+                    styles.filterButton,
+                    active && styles.activeFilterButton,
+                  ]}
+                  onPress={() => setFilter(f)}
+                >
+                  <Text
                     style={[
-                      styles.filterButton,
-                      active && styles.activeFilterButton,
+                      styles.filterText,
+                      active && styles.activeFilterText,
                     ]}
-                    onPress={() => setFilter(f)}
                   >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        active && styles.activeFilterText,
-                      ]}
-                    >
-                      {f === 'all'
-                        ? 'All'
-                        : f === 'unread'
-                        ? 'Unread'
-                        : 'Important'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
-            )}
+                    {f === 'all' ? 'All' : f === 'unread' ? 'Unread' : 'Important'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {unreadCount > 0 && (
@@ -381,7 +334,7 @@ export default function NotificationsScreen() {
       <View style={styles.emptyContainer}>
         <MaterialCommunityIcons
           name="bell-check-outline"
-          size={48}
+          size={44}
           color={COLORS.primary}
         />
         <Text style={styles.emptyTitle}>All caught up</Text>
@@ -407,9 +360,7 @@ export default function NotificationsScreen() {
     const important = isImportant(item);
 
     return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 40).duration(300)}
-      >
+      <Animated.View entering={FadeInDown.delay(index * 40).duration(300)}>
         <TouchableOpacity
           style={[
             styles.card,
@@ -428,7 +379,7 @@ export default function NotificationsScreen() {
           >
             <MaterialCommunityIcons
               name={getIcon(item.type) as any}
-              size={22}
+              size={20}
               color={iconColor}
             />
           </View>
@@ -436,19 +387,12 @@ export default function NotificationsScreen() {
           <View style={styles.contentContainer}>
             <View style={styles.topRow}>
               <View style={styles.typeRow}>
-                <Text
-                  style={[
-                    styles.typeText,
-                    { color: iconColor },
-                  ]}
-                >
+                <Text style={[styles.typeText, { color: iconColor }]}>
                   {getTypeLabel(item.type)}
                 </Text>
                 {important && (
                   <View style={styles.importantChip}>
-                    <Text style={styles.importantChipText}>
-                      Important
-                    </Text>
+                    <Text style={styles.importantChipText}>Important</Text>
                   </View>
                 )}
               </View>
@@ -532,13 +476,13 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
 
   headerContainer: {
     paddingTop: 8,
-    paddingBottom: 18,
+    paddingBottom: 12,
   },
 
   headerRow: {
@@ -547,9 +491,9 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -559,27 +503,27 @@ const styles = StyleSheet.create({
 
   titleContainer: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 10,
   },
 
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
 
   headerSubtitle: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
 
   badge: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    paddingHorizontal: 8,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    paddingHorizontal: 6,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -587,12 +531,12 @@ const styles = StyleSheet.create({
 
   badgeText: {
     color: COLORS.surface,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.bold,
   },
 
   actionRow: {
-    marginTop: 18,
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -600,12 +544,12 @@ const styles = StyleSheet.create({
 
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
 
   filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 999,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -618,7 +562,7 @@ const styles = StyleSheet.create({
   },
 
   filterText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.medium,
     color: COLORS.textSecondary,
   },
@@ -628,16 +572,16 @@ const styles = StyleSheet.create({
   },
 
   markAllText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
 
   sectionTitle: {
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 6,
     marginLeft: 4,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.semiBold,
     color: COLORS.textMuted,
   },
@@ -645,8 +589,8 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 14,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 16,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -662,10 +606,10 @@ const styles = StyleSheet.create({
   },
 
   iconContainer: {
-    width: 44,
-    height: 44,
-    marginRight: 12,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    marginRight: 10,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -678,7 +622,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
   },
 
   typeRow: {
@@ -688,77 +632,77 @@ const styles = StyleSheet.create({
   },
 
   typeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONTS.semiBold,
   },
 
   timeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONTS.medium,
     color: COLORS.textMuted,
   },
 
   notificationTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.text,
-    lineHeight: 20,
+    lineHeight: 18,
   },
 
   notificationBody: {
-    marginTop: 3,
-    fontSize: 12,
-    lineHeight: 18,
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 16,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
 
   surgeryLink: {
-    marginTop: 8,
-    fontSize: 12,
+    marginTop: 6,
+    fontSize: 11,
     fontFamily: FONTS.medium,
     color: COLORS.primary,
   },
 
   unreadDot: {
-    width: 8,
-    height: 8,
-    marginLeft: 8,
-    marginTop: 6,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    marginLeft: 6,
+    marginTop: 4,
+    borderRadius: 3.5,
     backgroundColor: COLORS.primary,
   },
 
   importantChip: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
     backgroundColor: `${COLORS.warning}18`,
     borderWidth: 1,
     borderColor: `${COLORS.warning}35`,
   },
 
   importantChipText: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: FONTS.bold,
     color: COLORS.warning,
   },
 
   separator: {
-    height: 10,
+    height: 8,
   },
 
   emptyContainer: {
     flex: 1,
-    minHeight: 320,
+    minHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
 
   emptyTitle: {
-    marginTop: 16,
-    fontSize: 18,
+    marginTop: 14,
+    fontSize: 17,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
@@ -766,8 +710,8 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 6,
     textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
