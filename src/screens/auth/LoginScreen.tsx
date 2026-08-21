@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,7 +22,7 @@ import Toast from 'react-native-toast-message';
 
 import { COLORS, FONTS } from '../../constants';
 import { useAuthStore } from '../../hooks/useAuthStore';
-import { UserRole } from '../../types';
+import type { UserRole } from '../../types';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -158,13 +160,7 @@ export default function LoginScreen() {
       }
 
       if (mode === 'signup') {
-        await register(
-          email.trim(),
-          password,
-          name.trim(),
-          role,
-          phone.trim()
-        );
+        await register(email.trim(), password, name.trim(), role, phone.trim());
 
         Toast.show({
           type: 'success',
@@ -185,9 +181,6 @@ export default function LoginScreen() {
         setPassword('');
         return;
       }
-
-      // App.tsx watches the auth store and will switch to MainNavigator.
-      // No manual navigation to Dashboard is required here.
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
@@ -237,11 +230,16 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Top Row */}
           <View style={styles.topRow}>
-            <Pressable onPress={handleBack} style={styles.backButton}>
+            <Pressable
+              onPress={handleBack}
+              style={styles.backButton}
+              disabled={loading}
+            >
               <MaterialCommunityIcons
                 name="arrow-left"
-                size={21}
+                size={20}
                 color={COLORS.text}
               />
             </Pressable>
@@ -249,13 +247,14 @@ export default function LoginScreen() {
             <View style={styles.secureBadge}>
               <MaterialCommunityIcons
                 name="shield-check-outline"
-                size={15}
+                size={14}
                 color={COLORS.success}
               />
               <Text style={styles.secureText}>Secure access</Text>
             </View>
           </View>
 
+          {/* Brand */}
           <View style={styles.brandWrap}>
             <LinearGradient
               colors={[COLORS.primary, COLORS.secondary]}
@@ -263,7 +262,7 @@ export default function LoginScreen() {
             >
               <MaterialCommunityIcons
                 name="hospital-box-outline"
-                size={34}
+                size={32}
                 color={COLORS.surface}
               />
             </LinearGradient>
@@ -271,11 +270,13 @@ export default function LoginScreen() {
             <Text style={styles.brandName}>SurgeryTrack</Text>
           </View>
 
+          {/* Heading */}
           <View style={styles.headingWrap}>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
           </View>
 
+          {/* Form */}
           <View style={styles.form}>
             {mode === 'signup' && (
               <Field
@@ -335,8 +336,12 @@ export default function LoginScreen() {
                     error={errors.password}
                     secureTextEntry={!showPassword}
                     editable={!loading}
-                    rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    onRightIconPress={() => setShowPassword((value) => !value)}
+                    rightIcon={
+                      showPassword ? 'eye-off-outline' : 'eye-outline'
+                    }
+                    onRightIconPress={() =>
+                      setShowPassword((value) => !value)
+                    }
                   />
                 </View>
 
@@ -376,7 +381,12 @@ export default function LoginScreen() {
                 }}
                 disabled={loading}
               >
-                <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    agreed && styles.checkboxActive,
+                  ]}
+                >
                   {agreed && (
                     <MaterialCommunityIcons
                       name="check"
@@ -470,6 +480,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          {/* Footer */}
           <View style={styles.footer}>
             <MaterialCommunityIcons
               name="lock-check-outline"
@@ -555,69 +566,86 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+
   flex: {
     flex: 1,
   },
+
   content: {
     flexGrow: 1,
-    padding: 24,
+    padding: 20,
   },
+
+  // Top Row
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   secureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: `${COLORS.success}18`,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: `${COLORS.success}25`,
   },
+
   secureText: {
     fontSize: 11,
     fontFamily: FONTS.medium,
     color: COLORS.success,
   },
+
+  // Brand
   brandWrap: {
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 24,
   },
+
   logo: {
-    width: 70,
-    height: 70,
-    borderRadius: 22,
+    width: 64,
+    height: 64,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   brandName: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginTop: 10,
   },
+
+  // Heading
   headingWrap: {
     alignItems: 'center',
-    marginTop: 26,
-    marginBottom: 26,
+    marginTop: 22,
+    marginBottom: 22,
   },
+
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
+
   subtitle: {
     fontSize: 13,
     fontFamily: FONTS.regular,
@@ -625,26 +653,32 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+
+  // Form
   form: {
     gap: 2,
   },
+
   fieldGroup: {
     marginBottom: 10,
   },
+
   field: {
-    minHeight: 56,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     backgroundColor: COLORS.surface,
-    borderRadius: 17,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   fieldError: {
     borderColor: COLORS.error,
   },
+
   input: {
     flex: 1,
     fontSize: 14,
@@ -652,22 +686,26 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     paddingVertical: 14,
   },
+
   formError: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontFamily: FONTS.regular,
     color: COLORS.error,
     marginTop: 5,
     marginLeft: 5,
   },
+
   forgotButton: {
     alignSelf: 'flex-end',
     paddingVertical: 8,
   },
+
   forgotText: {
     fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
+
   termsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -675,19 +713,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+
   checkbox: {
-    width: 21,
-    height: 21,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   checkboxActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
+
   termsText: {
     flex: 1,
     fontSize: 12,
@@ -695,59 +736,70 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
+
   link: {
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
+
   submitButton: {
-    marginTop: 20,
-    borderRadius: 18,
+    marginTop: 18,
+    borderRadius: 16,
     overflow: 'hidden',
   },
+
   submitGradient: {
-    minHeight: 57,
+    minHeight: 54,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
   },
+
   submitPressed: {
     transform: [{ scale: 0.98 }],
   },
+
   submitDisabled: {
     opacity: 0.75,
   },
+
   submitText: {
     color: COLORS.surface,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONTS.bold,
   },
+
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 5,
-    marginTop: 24,
+    marginTop: 20,
   },
+
   switchText: {
     fontSize: 13,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
+
   switchLink: {
     fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.primary,
   },
+
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 28,
+    marginTop: 24,
   },
+
   footerText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontFamily: FONTS.regular,
     color: COLORS.textMuted,
   },
