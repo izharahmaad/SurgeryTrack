@@ -1,13 +1,45 @@
 import React from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { COLORS, FONTS } from '../../constants';
 
+const WEBSITE_URL = 'https://surgerytrack.app';
+const SUPPORT_EMAIL = 'support@surgerytrack.app';
+const TERMS_URL = 'https://surgerytrack.app/terms';
+const PRIVACY_URL = 'https://surgerytrack.app/privacy';
+
 export default function AboutScreen() {
   const navigation = useNavigation<any>();
+
+  const openLink = async (url: string) => {
+    Haptics.selectionAsync();
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const openEmail = async () => {
+    Haptics.selectionAsync();
+    const url = `mailto:${SUPPORT_EMAIL}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -19,7 +51,10 @@ export default function AboutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.goBack();
+            }}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -33,41 +68,48 @@ export default function AboutScreen() {
           <View style={styles.headerActionPlaceholder} />
         </View>
 
-        {/* App info card with vector heart logo */}
+        {/* App Info Card */}
         <View style={styles.card}>
           <View style={styles.logoWrap}>
-            <View style={styles.logoCircle}>
-              <MaterialCommunityIcons
-                name="heart"
-                size={40}
-                color={COLORS.primary}
-              />
+            <View style={styles.logoRing}>
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.secondary]}
+                style={styles.logoGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <MaterialCommunityIcons
+                  name="heart-pulse"
+                  size={36}
+                  color={COLORS.surface}
+                />
+              </LinearGradient>
             </View>
+
             <Text style={styles.appName}>SurgeryTrack</Text>
-            <Text style={styles.tagline}>Smart surgery management for hospitals</Text>
+            <Text style={styles.tagline}>
+              Smart surgery management for hospitals
+            </Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
-          </View>
+          <View style={styles.divider} />
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Platform</Text>
-            <Text style={styles.infoValue}>iOS & Android</Text>
-          </View>
+          <InfoRow label="Version" value="1.0.0" />
+          <InfoRow label="Platform" value="iOS & Android" />
+          <InfoRow label="Build" value="Production" />
 
           <View style={styles.descriptionWrap}>
             <Text style={styles.description}>
-              SurgeryTrack is a role-based surgery management app that connects hospital staff,
-              doctors, nurses, receptionists, administrators, and family users around surgery
-              scheduling, operating-room status, surgery details, notifications, QR-code access,
-              and general medical information.
+              SurgeryTrack is a role-based surgery management app that connects
+              hospital staff, doctors, nurses, receptionists, administrators,
+              and family users around surgery scheduling, operating-room status,
+              surgery details, notifications, QR-code access, and general
+              medical information.
             </Text>
           </View>
         </View>
 
-        {/* Features */}
+        {/* Key Features */}
         <Text style={styles.sectionTitle}>Key Features</Text>
         <View style={styles.card}>
           <FeatureRow
@@ -92,6 +134,57 @@ export default function AboutScreen() {
           />
         </View>
 
+        {/* Tech Stack */}
+        <Text style={styles.sectionTitle}>Built With</Text>
+        <View style={styles.card}>
+          <TechRow
+            icon="code-tags"
+            text="React Native + TypeScript"
+          />
+          <TechRow
+            icon="database"
+            text="Firebase Firestore"
+          />
+          <TechRow
+            icon="shield-account"
+            text="Firebase Authentication"
+          />
+          <TechRow
+            icon="cellphone-link"
+            text="Expo & React Navigation"
+          />
+        </View>
+
+        {/* Contact */}
+        <Text style={styles.sectionTitle}>Contact & Support</Text>
+        <View style={styles.card}>
+          <ActionRow
+            icon="web"
+            text="Visit website"
+            onPress={() => openLink(WEBSITE_URL)}
+          />
+          <ActionRow
+            icon="email-outline"
+            text="Email support"
+            onPress={openEmail}
+          />
+        </View>
+
+        {/* Legal */}
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <View style={styles.card}>
+          <ActionRow
+            icon="file-document-outline"
+            text="Terms of Service"
+            onPress={() => openLink(TERMS_URL)}
+          />
+          <ActionRow
+            icon="shield-check-outline"
+            text="Privacy Policy"
+            onPress={() => openLink(PRIVACY_URL)}
+          />
+        </View>
+
         {/* Footer */}
         <Text style={styles.footerText}>
           © {new Date().getFullYear()} SurgeryTrack. All rights reserved.
@@ -100,6 +193,15 @@ export default function AboutScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -118,6 +220,53 @@ function FeatureRow({ icon, text }: { icon: string; text: string }) {
   );
 }
 
+function TechRow({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={styles.techRow}>
+      <View style={styles.techIconCircle}>
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={18}
+          color={COLORS.info}
+        />
+      </View>
+      <Text style={styles.techText}>{text}</Text>
+    </View>
+  );
+}
+
+function ActionRow({
+  icon,
+  text,
+  onPress,
+}: {
+  icon: string;
+  text: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.actionRow}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={styles.actionIconCircle}>
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={18}
+          color={COLORS.success}
+        />
+      </View>
+      <Text style={styles.actionText}>{text}</Text>
+      <MaterialCommunityIcons
+        name="chevron-right"
+        size={18}
+        color={COLORS.textMuted}
+      />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -128,6 +277,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -157,6 +307,7 @@ const styles = StyleSheet.create({
     height: 34,
   },
 
+  // Card
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: 18,
@@ -171,14 +322,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primaryLight,
+  logoRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    padding: 3,
+    backgroundColor: `${COLORS.primary}22`,
+    marginBottom: 12,
+  },
+
+  logoGradient: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
 
   appName: {
@@ -195,12 +353,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 12,
+  },
+
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
   },
 
   infoLabel: {
@@ -226,14 +388,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
+  // Sections
   sectionTitle: {
     fontSize: 13,
     fontFamily: FONTS.semiBold,
     color: COLORS.textSecondary,
     marginBottom: 8,
     marginTop: 4,
+    marginLeft: 4,
   },
 
+  // Features
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,7 +409,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: `${COLORS.primary}14`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -258,6 +423,57 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 
+  // Tech
+  techRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+
+  techIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: `${COLORS.info}14`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+
+  techText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+
+  // Actions
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+
+  actionIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: `${COLORS.success}14`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+
+  actionText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+  },
+
+  // Footer
   footerText: {
     textAlign: 'center',
     fontSize: 11,
