@@ -8,6 +8,7 @@ import {
   Share,
   Linking,
   ActivityIndicator,
+  Animated,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 
 import { COLORS, FONTS, STATUS_COLORS, STATUS_LABELS } from '../../constants';
@@ -335,8 +336,7 @@ export default function SurgeryDetailScreen() {
         contentContainerStyle={{ paddingBottom: 20 }}
       >
         {/* Live Status Banner */}
-        <Animated.View
-          entering={FadeIn.duration(300)}
+        <View
           style={[
             styles.statusBanner,
             {
@@ -372,14 +372,11 @@ export default function SurgeryDetailScreen() {
               { backgroundColor: statusConfig!.text },
             ]}
           />
-        </Animated.View>
+        </View>
 
         {/* Progress Timeline */}
         {!isTerminalOther && (
-          <Animated.View
-            entering={FadeInDown.delay(80)}
-            style={styles.card}
-          >
+          <View style={styles.card}>
             <Text style={styles.sectionTitle}>Progress Timeline</Text>
 
             <View style={styles.timelineRow}>
@@ -435,11 +432,11 @@ export default function SurgeryDetailScreen() {
                 </Text>
               ))}
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Patient Information */}
-        <Animated.View entering={FadeInDown.delay(120)} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Patient Information</Text>
 
           <DetailRow
@@ -459,10 +456,10 @@ export default function SurgeryDetailScreen() {
             label="Gender"
             value={surgery.patientGender || 'Not provided'}
           />
-        </Animated.View>
+        </View>
 
         {/* Surgery Information */}
-        <Animated.View entering={FadeInDown.delay(160)} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Surgery Information</Text>
 
           <DetailRow
@@ -505,10 +502,10 @@ export default function SurgeryDetailScreen() {
               </View>
             </View>
           ) : null}
-        </Animated.View>
+        </View>
 
         {/* Timeline */}
-        <Animated.View entering={FadeInDown.delay(200)} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Timeline</Text>
 
           <DetailRow
@@ -532,10 +529,10 @@ export default function SurgeryDetailScreen() {
               value={formatTimeOnly(surgery.actualEndTime)}
             />
           )}
-        </Animated.View>
+        </View>
 
         {/* Family Contact */}
-        <Animated.View entering={FadeInDown.delay(240)} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Family Contact</Text>
 
           <DetailRow
@@ -600,10 +597,10 @@ export default function SurgeryDetailScreen() {
               </TouchableOpacity>
             </View>
           )}
-        </Animated.View>
+        </View>
 
         {/* QR Code */}
-        <Animated.View entering={FadeInDown.delay(280)} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>QR Code</Text>
 
           <View style={styles.qrWrap}>
@@ -629,24 +626,22 @@ export default function SurgeryDetailScreen() {
               <Text style={styles.copyButtonText}>Copy QR Data</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Update Status (Hospital Only) */}
         {canUpdateStatus && (
-          <Animated.View entering={FadeInDown.delay(320)}>
-            <TouchableOpacity
-              style={styles.updateButton}
-              onPress={navigateToUpdateStatus}
-              activeOpacity={0.9}
-            >
-              <MaterialCommunityIcons
-                name="refresh"
-                size={20}
-                color={COLORS.surface}
-              />
-              <Text style={styles.updateButtonText}>Update Status</Text>
-            </TouchableOpacity>
-          </Animated.View>
+          <TouchableOpacity
+            style={styles.updateButton}
+            onPress={navigateToUpdateStatus}
+            activeOpacity={0.9}
+          >
+            <MaterialCommunityIcons
+              name="refresh"
+              size={20}
+              color={COLORS.surface}
+            />
+            <Text style={styles.updateButtonText}>Update Status</Text>
+          </TouchableOpacity>
         )}
 
         <View style={{ height: 20 }} />
