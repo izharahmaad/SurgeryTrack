@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+
 import { COLORS, FONTS, STATUS_COLORS, STATUS_LABELS } from '../../constants';
 import type { SurgeryOperation } from '../../types';
 import {
@@ -140,10 +142,12 @@ export default function CalendarScreen() {
   }, [firstDayIndex, daysInMonth]);
 
   const changeMonth = (delta: number) => {
+    Haptics.selectionAsync();
     setMonthCursor(new Date(year, month + delta, 1));
   };
 
   const goToToday = () => {
+    Haptics.selectionAsync();
     const now = new Date();
     setMonthCursor(new Date(now.getFullYear(), now.getMonth(), 1));
     setSelectedDate(now);
@@ -161,8 +165,15 @@ export default function CalendarScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <MaterialCommunityIcons name="arrow-left" size={18} color={COLORS.text} />
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={18}
+              color={COLORS.text}
+            />
           </TouchableOpacity>
 
           <View style={styles.headerTitleWrap}>
@@ -170,38 +181,66 @@ export default function CalendarScreen() {
             <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
           </View>
 
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <MaterialCommunityIcons name="calendar-today" size={18} color={COLORS.primary} />
+          <TouchableOpacity
+            style={styles.todayButton}
+            onPress={goToToday}
+          >
+            <MaterialCommunityIcons
+              name="calendar-today"
+              size={18}
+              color={COLORS.primary}
+            />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Month navigation */}
+      {/* Month Navigation */}
       <View style={styles.monthRow}>
-        <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.iconBtnSmall}>
-          <MaterialCommunityIcons name="chevron-left" size={18} color={COLORS.text} />
+        <TouchableOpacity
+          onPress={() => changeMonth(-1)}
+          style={styles.iconBtnSmall}
+        >
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={18}
+            color={COLORS.text}
+          />
         </TouchableOpacity>
 
         <Text style={styles.monthLabel}>
-          {monthCursor.toLocaleDateString([], { month: 'long', year: 'numeric' })}
+          {monthCursor.toLocaleDateString([], {
+            month: 'long',
+            year: 'numeric',
+          })}
         </Text>
 
-        <TouchableOpacity onPress={() => changeMonth(1)} style={styles.iconBtnSmall}>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.text} />
+        <TouchableOpacity
+          onPress={() => changeMonth(1)}
+          style={styles.iconBtnSmall}
+        >
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={18}
+            color={COLORS.text}
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Weekday labels */}
+      {/* Weekday Labels */}
       <View style={styles.weekRow}>
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-          <Text key={i} style={styles.weekLabel}>{d}</Text>
+          <Text key={i} style={styles.weekLabel}>
+            {d}
+          </Text>
         ))}
       </View>
 
-      {/* Calendar grid */}
+      {/* Calendar Grid */}
       <View style={styles.grid}>
         {calendarCells.map((day, index) => {
-          if (day === null) return <View key={index} style={styles.cellEmpty} />;
+          if (day === null) {
+            return <View key={index} style={styles.cellEmpty} />;
+          }
 
           const isSelected =
             day === selectedDate.getDate() &&
@@ -220,11 +259,20 @@ export default function CalendarScreen() {
                 isSelected && styles.cellSelected,
                 hasSurgery && styles.cellHasSurgery,
               ]}
-              onPress={() => setSelectedDate(new Date(year, month, day))}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedDate(new Date(year, month, day));
+              }}
             >
-              <Text style={[styles.cellText, isSelected && styles.cellTextSelected]}>
+              <Text
+                style={[
+                  styles.cellText,
+                  isSelected && styles.cellTextSelected,
+                ]}
+              >
                 {day}
               </Text>
+
               {hasSurgery && (
                 <View style={styles.dotRow}>
                   <View
@@ -240,7 +288,7 @@ export default function CalendarScreen() {
         })}
       </View>
 
-      {/* Day label + count */}
+      {/* Day Label + Count */}
       <View style={styles.listHeader}>
         <Text style={styles.listTitle}>
           {selectedDate.toLocaleDateString([], {
@@ -249,8 +297,10 @@ export default function CalendarScreen() {
             day: 'numeric',
           })}
         </Text>
+
         <Text style={styles.listCount}>
-          {daySurgeries.length} {daySurgeries.length === 1 ? 'surgery' : 'surgeries'}
+          {daySurgeries.length}{' '}
+          {daySurgeries.length === 1 ? 'surgery' : 'surgeries'}
         </Text>
       </View>
 
@@ -273,11 +323,14 @@ export default function CalendarScreen() {
                 size={36}
                 color={COLORS.textMuted}
               />
-              <Text style={styles.emptyText}>No surgeries on this date</Text>
+              <Text style={styles.emptyText}>
+                No surgeries on this date
+              </Text>
             </View>
           }
           renderItem={({ item }) => {
             const colors = STATUS_COLORS[item.status];
+
             return (
               <TouchableOpacity
                 style={styles.surgeryCard}
@@ -285,7 +338,12 @@ export default function CalendarScreen() {
                   navigation.navigate('SurgeryDetail', { surgeryId: item.id })
                 }
               >
-                <View style={[styles.iconContainer, { backgroundColor: `${colors.text}18` }]}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: `${colors.text}18` },
+                  ]}
+                >
                   <MaterialCommunityIcons
                     name={
                       item.status === 'emergency'
@@ -309,7 +367,11 @@ export default function CalendarScreen() {
                 <Text
                   style={[
                     styles.statusLabel,
-                    { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border },
+                    {
+                      color: colors.text,
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
                   {STATUS_LABELS[item.status]}
@@ -324,10 +386,22 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
 
-  header: { paddingHorizontal: 16, paddingTop: 8 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // Header
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
 
   backButton: {
     width: 34,
@@ -340,9 +414,22 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
-  headerTitleWrap: { flex: 1 },
-  headerTitle: { fontSize: 18, fontFamily: FONTS.bold, color: COLORS.text },
-  headerSubtitle: { fontSize: 11, fontFamily: FONTS.regular, color: COLORS.textMuted, marginTop: 1 },
+  headerTitleWrap: {
+    flex: 1,
+  },
+
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+
+  headerSubtitle: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
 
   todayButton: {
     width: 34,
@@ -355,6 +442,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
+  // Month Navigation
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,9 +462,19 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
-  monthLabel: { fontSize: 14, fontFamily: FONTS.semiBold, color: COLORS.text },
+  monthLabel: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
 
-  weekRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12 },
+  // Weekday Labels
+  weekRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+
   weekLabel: {
     flex: 1,
     textAlign: 'center',
@@ -385,11 +483,19 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, marginTop: 6 },
+  // Calendar Grid
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    marginTop: 6,
+  },
+
   cellEmpty: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
   },
+
   cell: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
@@ -398,17 +504,45 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginVertical: 3,
   },
-  cellSelected: { backgroundColor: COLORS.primary },
-  cellHasSurgery: { backgroundColor: `${COLORS.primary}08` },
 
-  cellText: { fontSize: 13, fontFamily: FONTS.medium, color: COLORS.text },
-  cellTextSelected: { color: COLORS.surface, fontFamily: FONTS.bold },
+  cellSelected: {
+    backgroundColor: COLORS.primary,
+  },
 
-  dotRow: { marginTop: 3 },
-  dot: { width: 5, height: 5, borderRadius: 2.5 },
-  dotNormal: { backgroundColor: COLORS.primary },
-  dotSelected: { backgroundColor: COLORS.surface },
+  cellHasSurgery: {
+    backgroundColor: `${COLORS.primary}08`,
+  },
 
+  cellText: {
+    fontSize: 13,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+
+  cellTextSelected: {
+    color: COLORS.surface,
+    fontFamily: FONTS.bold,
+  },
+
+  dotRow: {
+    marginTop: 3,
+  },
+
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+
+  dotNormal: {
+    backgroundColor: COLORS.primary,
+  },
+
+  dotSelected: {
+    backgroundColor: COLORS.surface,
+  },
+
+  // List Header
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -417,18 +551,38 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 8,
   },
-  listTitle: { fontSize: 14, fontFamily: FONTS.semiBold, color: COLORS.text },
-  listCount: { fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
+  listTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+
+  listCount: {
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+  },
+
+  // Loading
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  loadingText: { fontSize: 12, fontFamily: FONTS.regular, color: COLORS.textMuted },
 
-  list: { paddingHorizontal: 16, paddingBottom: 100 },
+  loadingText: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
+
+  // List
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
 
   surgeryCard: {
     flexDirection: 'row',
@@ -449,8 +603,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  patientName: { fontSize: 13, fontFamily: FONTS.semiBold, color: COLORS.text },
-  department: { fontSize: 11, fontFamily: FONTS.regular, color: COLORS.textMuted, marginTop: 1 },
+  patientName: {
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.text,
+  },
+
+  department: {
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
 
   statusLabel: {
     fontSize: 10,
@@ -461,6 +625,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  emptyWrap: { alignItems: 'center', paddingTop: 50, gap: 8 },
-  emptyText: { fontSize: 12, fontFamily: FONTS.regular, color: COLORS.textMuted },
+  // Empty
+  emptyWrap: {
+    alignItems: 'center',
+    paddingTop: 50,
+    gap: 8,
+  },
+
+  emptyText: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+  },
 });
