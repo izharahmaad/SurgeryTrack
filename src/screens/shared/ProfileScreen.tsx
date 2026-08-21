@@ -195,7 +195,10 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.goBack();
+            }}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -329,7 +332,6 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     padding: 16,
-    // No paddingBottom here; we use a spacer + fixed logout bar
   },
 
   // Header
