@@ -1,14 +1,9 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { COLORS, FONTS } from '../../constants';
 
@@ -17,32 +12,44 @@ type Props = {
   onNext: () => void;
 };
 
-export default function OnboardingScreen2({
-  onBack,
-  onNext,
-}: Props) {
+export default function OnboardingScreen2({ onBack, onNext }: Props) {
+  const handleBack = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onBack();
+  };
+
+  const handleContinue = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    onNext();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.heroCircle}>
-          <LinearGradient
-            colors={[
-              COLORS.info,
-              '#64B5F6',
-            ]}
-            style={styles.gradient}
-          >
-            <MaterialCommunityIcons
-              name="bell-ring-outline"
-              size={76}
-              color={COLORS.surface}
-            />
-          </LinearGradient>
+        {/* Hero Icon */}
+        <View style={styles.heroWrapper}>
+          <View style={styles.heroGlowOuter}>
+            <LinearGradient
+              colors={[COLORS.info, '#64B5F6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroGradient}
+            >
+              <MaterialCommunityIcons
+                name="bell-ring-outline"
+                size={64}
+                color={COLORS.surface}
+              />
+            </LinearGradient>
+          </View>
         </View>
 
-        <Text style={styles.title}>
-          Stay Informed
-        </Text>
+        {/* Title & Subtitle */}
+        <Text style={styles.title}>Stay Informed</Text>
 
         <Text style={styles.subtitle}>
           Receive important updates when a surgery
@@ -50,18 +57,18 @@ export default function OnboardingScreen2({
           recovery, or completion.
         </Text>
 
+        {/* Info Card */}
         <View style={styles.infoCard}>
-          <MaterialCommunityIcons
-            name="clock-check-outline"
-            size={28}
-            color={COLORS.primary}
-          />
+          <View style={styles.infoIconCircle}>
+            <MaterialCommunityIcons
+              name="clock-check-outline"
+              size={22}
+              color={COLORS.primary}
+            />
+          </View>
 
           <View style={styles.infoText}>
-            <Text style={styles.infoTitle}>
-              Real-time updates
-            </Text>
-
+            <Text style={styles.infoTitle}>Real-time updates</Text>
             <Text style={styles.infoBody}>
               See the latest available surgery status
               without repeatedly calling the hospital.
@@ -70,24 +77,18 @@ export default function OnboardingScreen2({
         </View>
       </View>
 
+      {/* Footer with Dots & Buttons */}
       <View style={styles.footer}>
         <View style={styles.dots}>
           <View style={styles.dot} />
-
-          <View
-            style={[
-              styles.dot,
-              styles.activeDot,
-            ]}
-          />
-
+          <View style={[styles.dot, styles.activeDot]} />
           <View style={styles.dot} />
         </View>
 
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={onBack}
+            onPress={handleBack}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Go back"
@@ -101,15 +102,12 @@ export default function OnboardingScreen2({
 
           <TouchableOpacity
             style={styles.button}
-            onPress={onNext}
+            onPress={handleContinue}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Continue to the next onboarding screen"
           >
-            <Text style={styles.buttonText}>
-              Continue
-            </Text>
-
+            <Text style={styles.buttonText}>Continue</Text>
             <MaterialCommunityIcons
               name="arrow-right"
               size={20}
@@ -135,52 +133,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
 
-  heroCircle: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    padding: 6,
-    marginBottom: 34,
+  // Hero
+  heroWrapper: {
+    marginBottom: 28,
   },
 
-  gradient: {
+  heroGlowOuter: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    padding: 3,
+    backgroundColor: `${COLORS.info}22`,
+  },
+
+  heroGradient: {
     flex: 1,
-    borderRadius: 82,
+    borderRadius: 73,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
+  // Text
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: FONTS.bold,
     color: COLORS.text,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
 
   subtitle: {
     marginTop: 12,
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 14,
+    lineHeight: 22,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    maxWidth: 320,
   },
 
+  // Info Card
   infoCard: {
     width: '100%',
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 28,
-    padding: 18,
-    borderRadius: 20,
+    alignItems: 'center',
+    marginTop: 26,
+    padding: 16,
+    borderRadius: 16,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
 
+  infoIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${COLORS.primary}12`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   infoText: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 12,
   },
 
   infoTitle: {
@@ -192,11 +208,12 @@ const styles = StyleSheet.create({
   infoBody: {
     marginTop: 4,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 20,
     fontFamily: FONTS.regular,
     color: COLORS.textSecondary,
   },
 
+  // Footer
   footer: {
     padding: 24,
   },
@@ -204,14 +221,13 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 18,
   },
 
   dot: {
     width: 8,
     height: 8,
-    marginHorizontal: 4,
     borderRadius: 4,
     backgroundColor: COLORS.border,
   },
@@ -229,7 +245,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 56,
     marginRight: 12,
-    borderRadius: 18,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
@@ -243,8 +259,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 17,
-    borderRadius: 18,
+    paddingVertical: 16,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
   },
 
