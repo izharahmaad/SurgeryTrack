@@ -535,7 +535,6 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
 
-  // Empty state
   emptyWrap: {
     alignItems: 'center',
     paddingTop: 80,
