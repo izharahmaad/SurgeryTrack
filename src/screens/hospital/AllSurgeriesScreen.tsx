@@ -43,7 +43,6 @@ export default function AllSurgeriesScreen() {
   const isHospitalStaff = HOSPITAL_ROLES.includes(userRole as any);
   const isFamily = userRole === 'family';
 
-  // Subscribe based on role (same pattern as Dashboard/Calendar)
   useEffect(() => {
     setLoading(true);
     setSurgeries([]);
