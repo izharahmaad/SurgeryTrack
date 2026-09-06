@@ -394,7 +394,6 @@ const styles = StyleSheet.create({
     height: 34,
   },
 
-  // Search
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
