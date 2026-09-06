@@ -409,7 +409,6 @@ export default function CreateSurgeryScreen() {
           />
         </Animated.View>
 
-        {/* Schedule */}
         <Animated.View entering={FadeInDown.delay(120)}>
           <Text style={styles.sectionTitle}>Schedule</Text>
 
@@ -455,7 +454,7 @@ export default function CreateSurgeryScreen() {
             />
           )}
         </Animated.View>
-        
+
         <Animated.View entering={FadeInDown.delay(160)}>
           <Text style={styles.sectionTitle}>Family Contact</Text>
 
