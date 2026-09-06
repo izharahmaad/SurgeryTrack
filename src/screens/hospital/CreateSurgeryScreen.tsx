@@ -455,8 +455,7 @@ export default function CreateSurgeryScreen() {
             />
           )}
         </Animated.View>
-
-        {/* Family Contact */}
+        
         <Animated.View entering={FadeInDown.delay(160)}>
           <Text style={styles.sectionTitle}>Family Contact</Text>
 
