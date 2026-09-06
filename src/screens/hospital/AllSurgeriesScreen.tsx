@@ -420,7 +420,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
-  // Filters
   filterRow: {
     paddingHorizontal: 16,
     paddingVertical: 12,
