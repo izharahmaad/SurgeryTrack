@@ -440,7 +440,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
   },
 
-  // List
   list: {
     paddingHorizontal: 16,
     paddingBottom: 120,
