@@ -349,7 +349,6 @@ export default function CreateSurgeryScreen() {
           </View>
         </Animated.View>
 
-        {/* Surgery Details */}
         <Animated.View entering={FadeInDown.delay(80)}>
           <Text style={styles.sectionTitle}>Surgery Details</Text>
 
