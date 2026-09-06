@@ -459,7 +459,6 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
 
-  // Card
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: 18,
