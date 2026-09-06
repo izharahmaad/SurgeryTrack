@@ -300,7 +300,7 @@ export default function CreateSurgeryScreen() {
         style={styles.form}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* Patient Info */}
+
         <Animated.View entering={FadeInDown.delay(40)}>
           <Text style={styles.sectionTitle}>Patient Information</Text>
 
