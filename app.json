@@ -1,29 +1,41 @@
 {
   "expo": {
     "name": "SurgeryTrack",
-    "slug": "SurgeryTrack",
+    "slug": "surgerytrack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F06292"
+    },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.surgerytrack.app",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SurgeryTrack uses your camera to scan QR codes.",
+        "NSMicrophoneUsageDescription": "SurgeryTrack does not use your microphone.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#F06292"
       },
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "package": "com.surgerytrack.app",
+      "versionCode": 1,
+      "permissions": ["android.permission.CAMERA"]
     },
     "plugins": [
-      "expo-font",
-      "@react-native-community/datetimepicker"
+      ["expo-camera", {
+        "cameraPermission": "Allow SurgeryTrack to use your camera for scanning QR codes."
+      }],
+      "expo-splash-screen"
     ]
   }
 }
