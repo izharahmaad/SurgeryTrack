@@ -206,7 +206,7 @@ export default function CreateSurgeryScreen() {
     []
   );
 
-  // ---------- Success Step ----------
+ 
 
   if (step === 2 && qrData) {
     return (
