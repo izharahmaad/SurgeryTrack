@@ -259,8 +259,6 @@ export default function CreateSurgeryScreen() {
     );
   }
 
-  
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
