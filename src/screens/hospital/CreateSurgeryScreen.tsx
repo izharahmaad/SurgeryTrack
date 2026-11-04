@@ -259,7 +259,7 @@ export default function CreateSurgeryScreen() {
     );
   }
 
-  // ---------- Form Step ----------
+  
 
   return (
     <SafeAreaView style={styles.container}>
